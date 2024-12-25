@@ -1,35 +1,46 @@
-# M3Unator 🎵
+# M3Unator 🎬 🎵
 
 <div align="center">
 
 ![M3Unator Banner](https://raw.githubusercontent.com/hasanbeder/M3Unator/main/screenshots/screenshot.png)
 
 <p align="center">
-  <a href="https://github.com/hasanbeder/M3Unator/releases"><img src="https://img.shields.io/badge/version-1.0.1-blue.svg" alt="Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-green.svg" alt="License"></a>
-  <a href="https://github.com/hasanbeder/M3Unator/stargazers"><img src="https://img.shields.io/github/stars/hasanbeder/M3Unator?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/hasanbeder/M3Unator/releases"><img src="https://img.shields.io/badge/version-1.0.1-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-green.svg?style=flat-square" alt="License"></a>
+  <a href="https://github.com/hasanbeder/M3Unator/stargazers"><img src="https://img.shields.io/github/stars/hasanbeder/M3Unator?style=flat-square&color=yellow" alt="GitHub stars"></a>
 </p>
 
-*Create M3U/M3U8 playlists from web directory listings with ease! Browse through Apache, Nginx, or any other web server's directory listing and let M3Unator generate a playlist of all media files. It recognizes popular formats like MP4 and MP3, as well as specialized ones like MKV and FLAC. With its clean dark interface and real-time scanning status, creating playlists has never been simpler.*
+<h3>
+  <p align="center">🎯 Create M3U/M3U8 playlists from web directory listings with ease!</p>
+</h3>
+
+<p align="center"><i>Browse through Apache, Nginx, or any other web server's directory listing and let M3Unator generate a playlist of all media files. It recognizes popular formats like MP4 and MP3, as well as specialized ones like MKV and FLAC. With its clean dark interface and real-time scanning status, creating playlists has never been simpler.</i></p>
 
 <p align="center">
-  <a href="#-installation">Installation</a> •
-  <a href="#-features">Features</a> •
-  <a href="#-usage">Usage</a> •
-  <a href="#-supported-formats">Formats</a> •
-  <a href="#-faq">FAQ</a> •
-  <a href="#-contributing">Contributing</a> •
-  <a href="https://github.com/hasanbeder/M3Unator/wiki">Documentation</a>
+  <a href="#-installation"><img src="https://img.shields.io/badge/-Installation-2ea44f?style=for-the-badge" alt="Installation"></a>
+  <a href="#-features"><img src="https://img.shields.io/badge/-Features-blue?style=for-the-badge" alt="Features"></a>
+  <a href="#-usage"><img src="https://img.shields.io/badge/-Usage-orange?style=for-the-badge" alt="Usage"></a>
+  <a href="#-supported-formats"><img src="https://img.shields.io/badge/-Formats-red?style=for-the-badge" alt="Formats"></a>
+  <a href="#-faq"><img src="https://img.shields.io/badge/-FAQ-purple?style=for-the-badge" alt="FAQ"></a>
+  <a href="#-contributing"><img src="https://img.shields.io/badge/-Contributing-yellow?style=for-the-badge" alt="Contributing"></a>
+  <a href="https://github.com/hasanbeder/M3Unator/wiki"><img src="https://img.shields.io/badge/-Documentation-gray?style=for-the-badge" alt="Documentation"></a>
 </p>
 
 </div>
 
 ## 📖 What are Open Directories?
 
+<div align="center">
+<table>
+<tr>
+<td width="70%">
+
 Open Directories are publicly accessible web server directories with directory listing enabled. These are web pages that display a list of files and folders, similar to how you view files on your computer. They are commonly found on Apache, Nginx, Lighttpd, LiteSpeed, and other web servers where directory indexing is enabled. These directories allow direct access to browse and download files through your web browser.
 
-For example, when you visit such a directory, you might see something like this:
-```
+</td>
+<td>
+
+```plaintext
 Index of /movies/
 [DIR] Action/
 [DIR] Comedy/
@@ -37,11 +48,17 @@ Index of /movies/
 [FILE] movie2.mkv
 ```
 
+</td>
+</tr>
+</table>
+</div>
+
 M3Unator is designed to work with these directory listings, automatically detecting media files and creating organized playlists.
 
-## 📖 Finding Open Directories
+## 🔍 Finding Open Directories
 
-You can use Google search operators to find open directories. Here are some effective search techniques:
+<details>
+<summary><b>Click to expand search techniques</b></summary>
 
 ### Basic Search Syntax
 ```
@@ -69,28 +86,44 @@ intitle:"index of" "your search term" (mp4|mkv) -html
 - `-inurl:(jsp|pl|php|html|aspx)` - Excludes dynamic pages
 - `(mp4|mkv|avi|mov)` - Searches for specific file types
 
-## 📖 Overview
-
-M3Unator is a sophisticated userscript that automatically generates M3U/M3U8 playlists from web directory listings. It works seamlessly with various web servers including Apache, Nginx, Lighttpd, LiteSpeed, and other web servers. With its intelligent file detection and recursive scanning capabilities, organizing your media files has never been easier.
+</details>
 
 ## ✨ Features
 
-### Core Functionality
-- 🎯 Automatic playlist creation from directory listings
-- 🔍 Smart detection of video and audio files
-- 📁 Support for Apache, Nginx, Lighttpd, LiteSpeed, and other web servers
-- 🌲 Configurable directory scanning depth
-- 🔄 Fault-tolerant design with retry mechanism
-- 📊 Real-time progress tracking
+<div align="center">
+<table>
+<tr>
+<td>
 
-### User Interface
-- 🎨 Modern and intuitive dark theme design
-- ⏯️ Pause/Resume scanning capability
-- 📈 Live progress indicators
-- 🔔 Toast notifications
-- 📝 Detailed logging system
+### 🎯 Core Functionality
+- Automatic playlist creation from directory listings
+- Smart detection of video and audio files
+- Support for Apache, Nginx, Lighttpd, LiteSpeed, and other web servers
+- Configurable directory scanning depth
+- Fault-tolerant design with retry mechanism
+- Real-time progress tracking
+
+</td>
+<td>
+
+### 🎨 User Interface
+- Modern and intuitive dark theme design
+- Pause/Resume scanning capability
+- Live progress indicators
+- Toast notifications
+- Detailed logging system
+
+</td>
+</tr>
+</table>
+</div>
 
 ## 🚀 Installation
+
+<div align="center">
+<table>
+<tr>
+<td>
 
 1. Install a userscript manager:
    - [Tampermonkey](https://www.tampermonkey.net/) (Recommended)
@@ -100,36 +133,62 @@ M3Unator is a sophisticated userscript that automatically generates M3U/M3U8 pla
    - [Click here to install](https://raw.githubusercontent.com/hasanbeder/M3Unator/main/M3Unator.user.js)
    - Click "Install" in the userscript manager popup
 
-> **Note for Tampermonkey v5.0+**: Enable developer mode in your browser's extensions settings.
+</td>
+<td>
+
+> **Note for Tampermonkey v5.0+**:  
+> Enable developer mode in your browser's extensions settings.
+
+</td>
+</tr>
+</table>
+</div>
 
 ## 📁 Supported Formats
 
-### Video Files
-\`\`\`
+<div align="center">
+<table>
+<tr>
+<td>
+
+### 🎬 Video Files
 mp4, mkv, avi, webm, mov, flv, wmv, m4v, mpg, mpeg, 
 3gp, vob, ts, mts, m2ts, divx, xvid, asf, ogv, rm, 
 rmvb, qt, hevc, f4v
-\`\`\`
 
-### Audio Files
-\`\`\`
+</td>
+<td>
+
+### 🎵 Audio Files
 mp3, m4a, wav, flac, aac, ogg, wma, opus, aiff, ape, 
 mka, ac3, dts, m4b, mp2, mpa, mpc, ra, tta, voc
-\`\`\`
+
+</td>
+</tr>
+</table>
+</div>
 
 ## 💡 Usage
 
+<div align="center">
+<table>
+<tr>
+<td>
+
 1. Navigate to any directory listing page
 2. Click the M3Unator button in the top-right corner
-3. Configure your preferences:
-   - Select media types (video/audio)
-   - Set scanning depth
-   - Choose output format (M3U/M3U8)
+3. Configure your preferences (or use defaults):
+   - Select media types (video/audio) - Default: both enabled
+   - Set scanning depth - Default: recursive (unlimited)
+   - Choose output format (M3U/M3U8) - Default: M3U
 4. Click "Create Playlist"
 5. Wait for the scan to complete
 6. Save your playlist file
 
-## ⚙️ Configuration Options
+</td>
+<td>
+
+### ⚙️ Configuration Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
@@ -139,15 +198,24 @@ mka, ac3, dts, m4b, mp2, mpa, mpc, ra, tta, voc
 | Timeout | Request timeout duration | 5000ms |
 | Retry Count | Number of retry attempts | 2 |
 
+</td>
+</tr>
+</table>
+</div>
+
 ## 🔍 Browser Compatibility
 
+<div align="center">
+
 | Browser | Support | Minimum Version |
-|---------|---------|-----------------|
+|:-------:|:-------:|:--------------:|
 | Chrome | ✅ | 88+ |
 | Firefox | ✅ | 78+ |
 | Edge | ✅ | 88+ |
 | Safari | ⚠️ | 14+ |
 | Opera | ✅ | 74+ |
+
+</div>
 
 ## ❓ FAQ
 
