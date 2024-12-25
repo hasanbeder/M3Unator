@@ -181,7 +181,7 @@ class MediaScanner {
 
 * [JavaScript MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 * [Tampermonkey Docs](https://www.tampermonkey.net/documentation.php)
-* [M3U Format Guide](wiki/M3U-Format.md)
+* [M3U Format Guide](https://github.com/hasanbeder/M3Unator/wiki/Playlist-Formats)
 
 ## 🤝 Contact
 

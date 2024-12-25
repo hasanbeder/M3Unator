@@ -1,35 +1,22 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-## [Unreleased]
-
-### Planned Features
-- Playlist sorting options
-- Custom file extension filtering
-- Scan speed optimization for large directories
-- Improved error reporting with detailed messages
-- Dark/Light theme toggle
-- Keyboard shortcuts for common actions
-
-## [1.0.0] - 2023-12-23
+## [1.0.1] - 2024-02-14
 
 ### Added
-- Initial release with core functionality
-- Support for multiple video formats (MP4, MKV, AVI, WEBM, MOV, FLV, WMV, TS, MTS, M2TS, and more)
-- Support for multiple audio formats (MP3, M4A, WAV, FLAC, AAC, OGG, and more)
-- Directory scanning with progress indication
-- M3U/M3U8 playlist generation
-- User-friendly interface with modal window
-- Error handling and user feedback
-- Settings persistence across sessions
+- Version number display in info modal
 
 ### Changed
-- Improved UI with modern design
-- Enhanced error messages
-- Optimized scanning algorithm
+- UI Improvements: Playlist name field and Create Playlist button heights aligned
+- UI Improvements: M3U/M3U8 selector dropdown positioning fixed
+- UI Improvements: Background interaction blocked when modal is open
+- Enhancement: LiteSpeed directory listing support improved
 
-### Fixed
-- Directory path handling issues
-- Special character encoding in filenames
-- Progress bar accuracy
+## [1.0.0] - 2024-02-13
+
+### Added
+- Initial release
+- Create M3U/M3U8 playlists from directory listing pages
+- Support for video and audio file formats
+- Recursive directory scanning
+- Progress tracking and logging
+- Dark theme UI
