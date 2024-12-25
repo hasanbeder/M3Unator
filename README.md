@@ -8,6 +8,7 @@
   <a href="https://github.com/hasanbeder/M3Unator/releases"><img src="https://img.shields.io/badge/version-1.0.1-blue.svg?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-green.svg?style=flat-square" alt="License"></a>
   <a href="https://github.com/hasanbeder/M3Unator/stargazers"><img src="https://img.shields.io/github/stars/hasanbeder/M3Unator?style=flat-square&color=yellow" alt="GitHub stars"></a>
+  <a href="https://greasyfork.org/en/scripts/521593-m3unator-web-directory-playlist-creator"><img src="https://img.shields.io/badge/Greasyfork-Install-red.svg?style=flat-square" alt="Greasyfork"></a>
 </p>
 
 <h3>
@@ -30,16 +31,9 @@
 
 ## 📖 What are Open Directories?
 
-<div align="center">
-<table>
-<tr>
-<td width="70%">
-
 Open Directories are publicly accessible web server directories with directory listing enabled. These are web pages that display a list of files and folders, similar to how you view files on your computer. They are commonly found on Apache, Nginx, Lighttpd, LiteSpeed, and other web servers where directory indexing is enabled. These directories allow direct access to browse and download files through your web browser.
 
-</td>
-<td>
-
+Example directory structure:
 ```plaintext
 Index of /movies/
 [DIR] Action/
@@ -47,11 +41,6 @@ Index of /movies/
 [FILE] movie1.mp4
 [FILE] movie2.mkv
 ```
-
-</td>
-</tr>
-</table>
-</div>
 
 M3Unator is designed to work with these directory listings, automatically detecting media files and creating organized playlists.
 
@@ -90,11 +79,6 @@ intitle:"index of" "your search term" (mp4|mkv) -html
 
 ## ✨ Features
 
-<div align="center">
-<table>
-<tr>
-<td>
-
 ### 🎯 Core Functionality
 - Automatic playlist creation from directory listings
 - Smart detection of video and audio files
@@ -103,9 +87,6 @@ intitle:"index of" "your search term" (mp4|mkv) -html
 - Fault-tolerant design with retry mechanism
 - Real-time progress tracking
 
-</td>
-<td>
-
 ### 🎨 User Interface
 - Modern and intuitive dark theme design
 - Pause/Resume scanning capability
@@ -113,17 +94,7 @@ intitle:"index of" "your search term" (mp4|mkv) -html
 - Toast notifications
 - Detailed logging system
 
-</td>
-</tr>
-</table>
-</div>
-
 ## 🚀 Installation
-
-<div align="center">
-<table>
-<tr>
-<td>
 
 1. Install a userscript manager:
    - [Tampermonkey](https://www.tampermonkey.net/) (Recommended)
@@ -133,47 +104,21 @@ intitle:"index of" "your search term" (mp4|mkv) -html
    - [Click here to install](https://raw.githubusercontent.com/hasanbeder/M3Unator/main/M3Unator.user.js)
    - Click "Install" in the userscript manager popup
 
-</td>
-<td>
-
 > **Note for Tampermonkey v5.0+**:  
 > Enable developer mode in your browser's extensions settings.
 
-</td>
-</tr>
-</table>
-</div>
-
 ## 📁 Supported Formats
-
-<div align="center">
-<table>
-<tr>
-<td>
 
 ### 🎬 Video Files
 mp4, mkv, avi, webm, mov, flv, wmv, m4v, mpg, mpeg, 
 3gp, vob, ts, mts, m2ts, divx, xvid, asf, ogv, rm, 
 rmvb, qt, hevc, f4v
 
-</td>
-<td>
-
 ### 🎵 Audio Files
 mp3, m4a, wav, flac, aac, ogg, wma, opus, aiff, ape, 
 mka, ac3, dts, m4b, mp2, mpa, mpc, ra, tta, voc
 
-</td>
-</tr>
-</table>
-</div>
-
 ## 💡 Usage
-
-<div align="center">
-<table>
-<tr>
-<td>
 
 1. Navigate to any directory listing page
 2. Click the M3Unator button in the top-right corner
@@ -185,9 +130,6 @@ mka, ac3, dts, m4b, mp2, mpa, mpc, ra, tta, voc
 5. Wait for the scan to complete
 6. Save your playlist file
 
-</td>
-<td>
-
 ### ⚙️ Configuration Options
 
 | Option | Description | Default |
@@ -198,24 +140,15 @@ mka, ac3, dts, m4b, mp2, mpa, mpc, ra, tta, voc
 | Timeout | Request timeout duration | 5000ms |
 | Retry Count | Number of retry attempts | 2 |
 
-</td>
-</tr>
-</table>
-</div>
-
 ## 🔍 Browser Compatibility
 
-<div align="center">
-
 | Browser | Support | Minimum Version |
-|:-------:|:-------:|:--------------:|
+|---------|---------|----------------|
 | Chrome | ✅ | 88+ |
 | Firefox | ✅ | 78+ |
 | Edge | ✅ | 88+ |
 | Safari | ⚠️ | 14+ |
 | Opera | ✅ | 74+ |
-
-</div>
 
 ## ❓ FAQ
 
