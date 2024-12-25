@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         M3Unator - Web Directory Playlist Creator
 // @namespace    https://github.com/hasanbeder/M3Unator
-// @version      1.0.0
+// @version      1.0.1
 // @description  Create M3U/M3U8 playlists from directory listing pages. Automatically finds video and audio files in web server indexes.
 // @author       Hasan Beder
 // @license      GPL-3.0
@@ -19,9 +19,59 @@
 (function() {
     'use strict';
 
-    if (!document.title.includes('Index of')) {
+    if (!document.title.includes('Index of') && !document.querySelector('div#table-list')) {
         console.log('This page is not an Index page, M3Unator disabled.');
         return;
+    }
+
+    function parseLiteSpeedDirectory() {
+        const links = [];
+        const rows = document.querySelectorAll('#table-content tr');
+        
+        rows.forEach(row => {
+            const linkElement = row.querySelector('a');
+            if (linkElement && !linkElement.textContent.includes('Parent Directory')) {
+                const href = linkElement.getAttribute('href');
+                if (href) {
+                    links.push(new URL(href, window.location.href).href);
+                }
+            }
+        });
+        
+        return links;
+    }
+
+    // Add LiteSpeed support to the existing getDirectoryLinks function
+    function getDirectoryLinks() {
+        const links = [];
+        
+        // LiteSpeed directory listing
+        if (document.querySelector('div#table-list')) {
+            const rows = document.querySelectorAll('#table-content tr');
+            rows.forEach(row => {
+                const linkElement = row.querySelector('a');
+                if (linkElement && !linkElement.textContent.includes('Parent Directory')) {
+                    const href = link.getAttribute('href');
+                    if (href) {
+                        links.push(new URL(href, window.location.href).href);
+                    }
+                }
+            });
+            return links;
+        }
+        
+        // Apache/Nginx style directory listing
+        const anchors = document.querySelectorAll('a');
+        anchors.forEach(anchor => {
+            if (!anchor.textContent.includes('Parent Directory')) {
+                const href = anchor.getAttribute('href');
+                if (href && !href.startsWith('?') && !href.startsWith('/')) {
+                    links.push(new URL(href, window.location.href).href);
+                }
+            }
+        });
+        
+        return links;
     }
 
     GM_addStyle(`
@@ -81,6 +131,27 @@
             place-items: center;
             padding: 1rem;
             z-index: 9999;
+        }
+
+        .M3Unator-container[data-visible="true"] {
+            display: grid;
+        }
+
+        .M3Unator-overlay {
+            position: fixed;
+            inset: 0;
+            background: transparent;
+            z-index: 9998;
+        }
+
+        body.modal-open {
+            overflow: hidden;
+            pointer-events: none; /* Arka plan tıklamalarını engelle */
+        }
+
+        body.modal-open .M3Unator-container,
+        body.modal-open .M3Unator-popup {
+            pointer-events: all; /* Modal içeriğine tıklamaya izin ver */
         }
 
         .M3Unator-popup {
@@ -190,29 +261,21 @@
 
         .M3Unator-input {
             width: 100%;
-            padding: 0.618rem;
-            border: 1px solid #313244;
+            height: 42px; /* Create Playlist butonu ile aynı yükseklik */
+            padding: 0 12px;
+            border: 1px solid #45475a;
             border-radius: 8px;
-            background-color: #1e1e2e !important;
-            color: #cdd6f4 !important;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-            font-size: 0.9375rem;
-            letter-spacing: -0.01em;
+            background: #1e1e2e;
+            color: #f5c2e7;
+            font-size: 14px;
             transition: all 0.2s ease;
-            -webkit-text-fill-color: #cdd6f4 !important;
-            text-decoration: none !important;
-            -webkit-text-decoration: none !important;
+            box-sizing: border-box;
         }
 
         .M3Unator-input:focus {
             outline: none;
             border-color: #f5c2e7;
-            box-shadow: 0 0 0 3px rgba(245, 194, 231, 0.1);
-            background-color: #1e1e2e !important;
-            color: #cdd6f4 !important;
-            -webkit-text-fill-color: #cdd6f4 !important;
-            text-decoration: none !important;
-            -webkit-text-decoration: none !important;
+            box-shadow: 0 0 0 2px rgba(245, 194, 231, 0.1);
         }
 
         .M3Unator-input::placeholder {
@@ -329,18 +392,20 @@
 
         .M3Unator-button {
             width: 100%;
-            padding: 0.75rem;
-            background: #f5c2e7;
-            color: #11111b;
+            height: 42px;
+            padding: 0 16px;
             border: none;
             border-radius: 8px;
+            background: #f5c2e7;
+            color: #1e1e2e;
             font-weight: 600;
+            font-size: 14px;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
+            gap: 8px;
         }
 
         .M3Unator-button:hover {
@@ -443,6 +508,8 @@
         .M3Unator-dropdown-button svg {
             width: 16px;
             height: 16px;
+            min-width: 16px;
+            min-height: 16px;
             transition: transform 0.2s ease;
         }
 
@@ -1715,87 +1782,447 @@
         .info-modal {
             display: none;
             position: fixed;
-            z-index: 100000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(30, 30, 46, 0.6);
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
             backdrop-filter: blur(8px);
+            z-index: 10000;
         }
 
         .info-modal-content {
-            background-color: #1e1e2e;
-            color: #cdd6f4;
-            margin: 15% auto;
-            padding: 24px;
-            border: 2px solid #45475a;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1e1e2e;
+            border: 1px solid #45475a;
+            border-radius: 12px;
             width: 90%;
             max-width: 600px;
-            border-radius: 12px;
-            position: relative;
-            z-index: 100001;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            color: #cdd6f4;
+        }
+
+        .info-modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #45475a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .info-modal-header h3 {
+            margin: 0;
+            color: #f5c2e7;
+            font-size: 1.25rem;
+        }
+
+        .info-modal-body {
+            padding: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .info-modal-body p {
+            margin: 0 0 1rem;
+        }
+
+        .info-modal-body h4 {
+            margin: 1.5rem 0 0.75rem;
+            color: #f5c2e7;
+        }
+
+        .info-modal-body ul {
+            margin: 0.75rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .info-modal-body li {
+            margin: 0.5rem 0;
+        }
+
+        .info-modal-body a {
+            color: #89b4fa;
+            text-decoration: none;
+        }
+
+        .info-modal-body a:hover {
+            text-decoration: underline;
         }
 
         .info-close {
-            position: absolute;
-            right: 16px;
-            top: 16px;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #6c7086;
             cursor: pointer;
+            color: #6c7086;
             transition: color 0.2s ease;
-            background: none;
-            border: none;
-            padding: 0;
         }
 
         .info-close:hover {
-            color: #cba6f7;
+            color: #f5c2e7;
+        }
+    `);
+
+    GM_addStyle(`
+        .m3unator-input-group {
+            position: relative;
+            width: 100%;
         }
 
-        .info-link {
+        .m3unator-input {
+            width: 100%;
+            padding-right: 80px !important;
+            transition: all 0.2s ease;
+        }
+
+        .m3unator-dropdown {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+            z-index: 1;
+            width: 70px;
+        }
+
+        .m3unator-dropdown.active {
+            display: block;
+        }
+
+        .m3unator-dropdown-button {
+            width: 100%;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(30, 30, 46, 0.6);
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            color: #f5c2e7;
             cursor: pointer;
-            color: #6c7086;
-            transition: color 0.2s ease;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
+            gap: 4px;
+            transition: all 0.2s ease;
         }
 
-        .info-link:hover {
-            color: #cba6f7;
+        .m3unator-dropdown-button:hover {
+            background: rgba(30, 30, 46, 0.8);
+            border-color: rgba(69, 71, 90, 0.8);
         }
 
-        .info-section {
-            margin-bottom: 24px;
+        .m3unator-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 100%;
+            margin-top: 4px;
+            background: rgba(30, 30, 46, 0.95);
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            border-radius: 6px;
+            padding: 4px;
+            display: none;
         }
 
-        .info-section:last-child {
-            margin-bottom: 0;
+        .m3unator-dropdown.active .m3unator-dropdown-menu {
+            display: block;
         }
 
-        .info-section h3 {
-            color: #cba6f7;
-            margin-bottom: 12px;
-            font-size: 1.1em;
-            font-weight: 600;
-        }
-
-        .info-section p {
+        .m3unator-dropdown-item {
+            padding: 0.618rem;
             color: #cdd6f4;
-            line-height: 1.6;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .m3unator-dropdown-item:hover {
+            background: rgba(203, 166, 247, 0.1);
+        }
+
+        .m3unator-dropdown-item.selected {
+            background: rgba(203, 166, 247, 0.1);
+            color: #cba6f7;
+        }
+    `);
+
+    GM_addStyle(`
+        .M3Unator-container {
+            max-width: 400px;
+            width: 100%;
+            background: none;
+            backdrop-filter: none;
+        }
+
+        .M3Unator-popup {
+            background: #1e1e2e;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(69, 71, 90, 0.6);
+        }
+
+        .M3Unator-content {
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-width: 100%;
+            overflow: hidden;
+            background: none;
+        }
+
+        .M3Unator-header {
+            padding: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: none;
+            border-bottom: 1px solid rgba(69, 71, 90, 0.6);
+        }
+
+        .M3Unator-input {
+            width: 100%;
+            min-width: 0;
+            padding: 8px 80px 8px 12px;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+            background: #1e1e2e;
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            border-radius: 6px;
+            color: #f5c2e7;
+            font-size: 14px;
+        }
+
+        .M3Unator-dropdown-button {
+            width: 100%;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: #1e1e2e;
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            color: #f5c2e7;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            font-size: 14px;
+            font-family: monospace;
+        }
+
+        .M3Unator-dropdown-button span {
+            min-width: 40px;
+            text-align: left;
+        }
+
+        .M3Unator-dropdown-button svg {
+            width: 16px;
+            height: 16px;
+            min-width: 16px;
+            min-height: 16px;
+            margin-left: auto;
+        }
+
+        .M3Unator-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 100%;
+            margin-top: 4px;
+            background: #1e1e2e;
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            border-radius: 6px;
+            padding: 4px;
+            display: none;
+            box-sizing: border-box;
+            z-index: 9999;
+        }
+    `);
+
+    GM_addStyle(`
+        .M3Unator-content {
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .M3Unator-toggle-group {
+            margin: 0;
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            background: rgba(30, 30, 46, 0.4);
+            padding: 0.75rem;
+            border-radius: 12px;
+        }
+
+        .M3Unator-button {
             margin: 0;
         }
 
-        .info-section strong {
-            color: #89b4fa;
+        .M3Unator-log-container {
+            margin: 0;
+        }
+
+        .M3Unator-stats-bar {
+            margin: 0;
+        }
+    `);
+
+    GM_addStyle(`
+        /* Dropdown Styles */
+        .M3Unator-dropdown {
+            position: relative;
+            display: none;
+        }
+
+        .M3Unator-dropdown-button {
+            width: 100%;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: #1e1e2e;
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            color: #f5c2e7;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            font-size: 14px;
+            font-family: monospace;
+        }
+
+        .M3Unator-dropdown-button span {
+            min-width: 40px;
+            text-align: left;
+        }
+
+        .M3Unator-dropdown-button svg {
+            width: 16px;
+            height: 16px;
+            min-width: 16px;
+            min-height: 16px;
+            margin-left: auto;
+            transition: transform 0.2s ease;
+        }
+
+        .M3Unator-dropdown.active .M3Unator-dropdown-button svg {
+            transform: rotate(180deg);
+        }
+
+        .M3Unator-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background: #1e1e2e;
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            border-radius: 6px;
+            overflow: hidden;
+            z-index: 1000;
+            display: none;
+        }
+
+        .M3Unator-dropdown.active .M3Unator-dropdown-menu {
+            display: block;
+        }
+
+        .M3Unator-dropdown-item {
+            padding: 6px 12px;
+            color: #f5c2e7;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: monospace;
+        }
+
+        .M3Unator-dropdown-item:hover {
+            background: rgba(69, 71, 90, 0.3);
+        }
+
+        .M3Unator-dropdown-item:not(:last-child) {
+            border-bottom: 1px solid rgba(69, 71, 90, 0.3);
+        }
+
+        /* Input Styles */
+        .M3Unator-input {
+            width: 100%;
+            height: 42px;
+            padding: 0 12px;
+            border: 1px solid #45475a;
+            border-radius: 8px;
+            background: #1e1e2e;
+            color: #f5c2e7;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .M3Unator-input:focus {
+            outline: none;
+            border-color: #f5c2e7;
+            box-shadow: 0 0 0 2px rgba(245, 194, 231, 0.1);
+        }
+
+        /* Button Styles */
+        .M3Unator-button {
+            height: 42px;
+            padding: 0 16px;
+            border: none;
+            border-radius: 8px;
+            background: #f5c2e7;
+            color: #1e1e2e;
             font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        /* Toggle Container Styles */
+        .M3Unator-toggle-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        /* Control Button Styles */
+        .M3Unator-control-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            min-width: 160px;
+            background: rgba(30, 30, 46, 0.6);
+            backdrop-filter: blur(8px);
+        }
+
+        .M3Unator-control-btn.pause {
+            border-color: #fab387;
+            color: #fab387;
+        }
+
+        .M3Unator-control-btn.resume {
+            border-color: #94e2d5;
+            color: #94e2d5;
+        }
+
+        .M3Unator-control-btn.cancel {
+            border-color: #f38ba8;
+            color: #f38ba8;
+        }
+
+        /* Stats Styles */
+        .M3Unator-stat {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.382rem;
+            font-size: 0.875rem;
+            cursor: help;
+            min-width: 52px;
+            padding: 0 0.382rem;
         }
     `);
 
@@ -1953,10 +2380,10 @@
                         <span>${text}</span>
                     </button>
                 `,
-                statsItem: (icon, id, title) => `
-                    <span class="M3Unator-stat ${props.class}" title="${props.title}">
+                statsItem: (icon, id, title, className = '') => `
+                    <span class="M3Unator-stat ${className}" title="${title}">
                         ${icon}
-                        <span id="${props.id}">0</span>
+                        <span id="${id}">0</span>
                     </span>
                 `
             };
@@ -2149,28 +2576,23 @@
                     </div>
                     <div class="info-modal">
                         <div class="info-modal-content">
-                            <button class="info-close">${this.icons.close}</button>
-                            <div class="info-section">
+                            <div class="info-modal-header">
                                 <h3>About M3Unator</h3>
-                                <p>M3Unator is your smart playlist creator that transforms any web directory into organized media playlists. Whether you have a collection of movies, TV shows, music, or mixed media, M3Unator helps you create perfect M3U playlists with just a few clicks.</p>
+                                <span class="info-close">${this.icons.close}</span>
                             </div>
-                            <div class="info-section">
-                                <h3>Media Support</h3>
-                                <p>
-                                    <strong>Video:</strong> All major formats including MP4, MKV, AVI, WebM, MOV, FLV, WMV, TS, and more<br>
-                                    <strong>Audio:</strong> Wide range of formats like MP3, WAV, FLAC, M4A, AAC, OGG, and others
-                                </p>
-                            </div>
-                            <div class="info-section">
-                                <h3>Smart Features</h3>
-                                <p>
-                                    - Intelligent directory scanning with customizable depth<br>
-                                    - Automatic media type detection and filtering<br>
-                                    - Real-time progress tracking and detailed logs<br>
-                                    - Pause, resume, and cancel operations anytime<br>
-                                    - Smart file sorting and organization<br>
-                                    - Compatible with all major media players
-                                </p>
+                            <div class="info-modal-body">
+                                <p><strong>M3Unator v1.0.1</strong> - Web Directory Playlist Creator</p>
+                                <p>Create M3U/M3U8 playlists from directory listing pages. Automatically finds video and audio files in web server indexes.</p>
+                                <h4>Features:</h4>
+                                <ul>
+                                    <li>Supports video formats: MP4, MKV, AVI, etc.</li>
+                                    <li>Supports audio formats: MP3, M4A, FLAC, etc.</li>
+                                    <li>Recursive directory scanning</li>
+                                    <li>Custom playlist naming</li>
+                                    <li>Progress tracking</li>
+                                    <li>Dark theme interface</li>
+                                </ul>
+                                <p>For more information and updates, visit the <a href="https://github.com/hasanbeder/M3Unator" target="_blank">GitHub repository</a>.</p>
                             </div>
                         </div>
                     </div>
@@ -2186,17 +2608,16 @@
                                     autocomplete="off"
                                     autocorrect="off"
                                     autocapitalize="off">
-                            </div>
 
-                            <div class="M3Unator-input-group">
                                 <div class="M3Unator-dropdown">
                                     <button type="button" class="M3Unator-dropdown-button">
-                                        <span>M3U</span>
+                                        <span>.m3u</span>
                                         ${this.icons.chevronDown}
                                     </button>
                                     <div class="M3Unator-dropdown-menu">
-                                        <div class="M3Unator-dropdown-item selected" data-value="m3u">M3U</div>
-                                        <div class="M3Unator-dropdown-item" data-value="m3u8">M3U8 (UTF-8)</div>
+                                        <div class="M3Unator-dropdown-item selected" data-value="m3u">.m3u</div>
+                                        <div class="M3Unator-dropdown-divider"></div>
+                                        <div class="M3Unator-dropdown-item" data-value="m3u8">.m3u8</div>
                                     </div>
                                 </div>
                             </div>
@@ -2259,123 +2680,197 @@
                     </div>
 
                     <style>
+                        .M3Unator-container {
+                            max-width: 400px;
+                            width: 100%;
+                            background: transparent;
+                            backdrop-filter: none;
+                        }
+
+                        .M3Unator-popup {
+                            background: #1e1e2e;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+                            border: 1px solid rgba(69, 71, 90, 0.6);
+                        }
+
+                        .info-modal {
+                            display: none;
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            background: rgba(0, 0, 0, 0.75);
+                            z-index: 99999;
+                        }
+
+                        .info-content {
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background: #1e1e2e;
+                            padding: 2rem;
+                            border-radius: 12px;
+                            max-width: 600px;
+                            width: 90%;
+                            max-height: 80vh;
+                            overflow-y: auto;
+                            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                            border: 1px solid rgba(69, 71, 90, 0.6);
+                        }
+
                         .M3Unator-content {
                             padding: 0.75rem;
                             display: flex;
                             flex-direction: column;
                             gap: 0.75rem;
+                            max-width: 100%;
+                            overflow: hidden;
                         }
 
                         .M3Unator-input-row {
                             display: flex;
-                            gap: 0.75rem;
-                            margin-bottom: 0;
+                            width: 100%;
+                            position: relative;
+                            max-width: 100%;
+                            overflow: visible;
                         }
 
-                        .M3Unator-toggle-group {
-                            margin: 0;
-                            display: flex;
-                            gap: 0.75rem;
-                            justify-content: center;
-                            background: rgba(30, 30, 46, 0.4);
-                            padding: 0.75rem;
-                            border-radius: 12px;
-                            backdrop-filter: blur(8px);
-                        }
-
-                        .M3Unator-button {
-                            margin: 0;
-                            height: 42px;
-                        }
-
-                        .M3Unator-controls {
-                            margin: 0;
-                            display: none;
-                            gap: 0.75rem;
-                            justify-content: center;
-                        }
-
-                        .M3Unator-stats-bar {
-                            margin: 0;
-                            padding: 0.5rem;
-                            background: rgba(30, 30, 46, 0.5);
-                            border: 1px solid #313244;
-                            border-radius: 8px;
-                            display: none;
-                        }
-
-                        .M3Unator-log {
-                            margin-top: 0.75rem;
-                            max-height: calc(100vh - 70vh);
-                            font-size: 0.8125rem;
-                            line-height: 1.4;
-                        }
-
-                        .M3Unator-header {
-                            padding: 0.75rem 1rem;
-                        }
-
-                        .M3Unator-toggle-container span {
-                            width: 48px;
-                            height: 48px;
-                        }
-
-                        .M3Unator-depth-controls {
-                            padding: 0.75rem;
-                            margin-top: 0.75rem;
-                        }
-
-                        .M3Unator-radio-group {
-                            padding: 0.5rem;
-                        }
-
-                        .M3Unator-popup {
-                            max-height: 85vh;
-                            display: flex;
-                            flex-direction: column;
-                        }
-
-                        .M3Unator-header {
-                            flex-shrink: 0;
-                        }
-
-                        .M3Unator-content {
+                        .M3Unator-input-group {
                             flex: 1;
-                            overflow-y: auto;
-                            scrollbar-width: thin;
-                            scrollbar-color: #cba6f7 #1e1e2e;
+                            min-width: 0;
+                            position: relative;
                         }
 
-                        .M3Unator-content::-webkit-scrollbar {
-                            width: 8px;
-                        }
-
-                        .M3Unator-content::-webkit-scrollbar-track {
-                            background: #1e1e2e;
-                            border-radius: 4px;
-                        }
-
-                        .M3Unator-content::-webkit-scrollbar-thumb {
-                            background: #cba6f7;
-                            border-radius: 4px;
-                        }
-
-                        .M3Unator-content::-webkit-scrollbar-thumb:hover {
-                            background: #f5c2e7;
-                        }
-
-                        .M3Unator-depth-controls {
-                            padding: 0.75rem;
-                            margin: 0;
-                            background: rgba(30, 30, 46, 0.4);
-                            border-radius: 12px;
-                            backdrop-filter: blur(8px);
-                        }
-
-                        .M3Unator-radio-group {
-                            padding: 0.5rem;
+                        .M3Unator-input {
+                            width: 100%;
+                            min-width: 0;
+                            padding-right: 80px;
+                            box-sizing: border-box;
+                            transition: all 0.2s ease;
                             background: rgba(30, 30, 46, 0.6);
-                            border-radius: 8px;
+                            border: 1px solid rgba(69, 71, 90, 0.6);
+                            border-radius: 6px;
+                            color: #f5c2e7;
+                            padding: 8px 80px 8px 12px;
+                            font-size: 14px;
+                        }
+
+                        .M3Unator-dropdown {
+                            position: absolute;
+                            right: 8px;
+                            top: 50%;
+                            transform: translateY(-50%);
+                            width: 70px;
+                            z-index: 9999;
+                            display: none;
+                        }
+
+                        .M3Unator-dropdown.active {
+                            display: block;
+                        }
+
+                        .M3Unator-dropdown-button {
+                            width: 100%;
+                            padding: 4px 8px;
+                            border-radius: 6px;
+                            background: rgba(30, 30, 46, 0.8);
+                            border: 1px solid rgba(69, 71, 90, 0.6);
+                            color: #f5c2e7;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            gap: 4px;
+                            transition: all 0.2s ease;
+                            box-sizing: border-box;
+                            font-size: 14px;
+                        }
+
+                        .M3Unator-dropdown-button:hover {
+                            background: rgba(30, 30, 46, 0.9);
+                            border-color: rgba(69, 71, 90, 0.8);
+                        }
+
+                        .M3Unator-dropdown-menu {
+                            position: absolute;
+                            top: 100%;
+                            right: 0;
+                            width: 100%;
+                            margin-top: 4px;
+                            background: rgba(30, 30, 46, 0.95);
+                            border: 1px solid rgba(69, 71, 90, 0.6);
+                            border-radius: 6px;
+                            padding: 4px;
+                            display: none;
+                            box-sizing: border-box;
+                            z-index: 9999;
+                        }
+
+                        .M3Unator-dropdown.active .M3Unator-dropdown-menu {
+                            display: block;
+                        }
+
+                        .M3Unator-dropdown-item {
+                            padding: 8px 12px;
+                            cursor: pointer;
+                            border-radius: 4px;
+                            transition: all 0.2s ease;
+                            text-align: center;
+                            font-size: 14px;
+                            font-family: monospace;
+                            color: #cdd6f4;
+                        }
+
+                        .M3Unator-dropdown-divider {
+                            height: 1px;
+                            background: rgba(69, 71, 90, 0.6);
+                            margin: 6px 0;
+                        }
+
+                        .M3Unator-dropdown-menu {
+                            position: absolute;
+                            top: 100%;
+                            right: 0;
+                            width: 100%;
+                            margin-top: 4px;
+                            background: #1e1e2e;
+                            border: 1px solid rgba(69, 71, 90, 0.6);
+                            border-radius: 6px;
+                            padding: 6px;
+                            display: none;
+                            box-sizing: border-box;
+                            z-index: 9999;
+                        }
+
+                        .M3Unator-dropdown-button {
+                            width: 100%;
+                            padding: 4px 8px;
+                            border-radius: 6px;
+                            background: #1e1e2e;
+                            border: 1px solid rgba(69, 71, 90, 0.6);
+                            color: #f5c2e7;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            gap: 4px;
+                            transition: all 0.2s ease;
+                            box-sizing: border-box;
+                            font-size: 14px;
+                            font-family: monospace;
+                        }
+
+                        .M3Unator-dropdown-item:hover {
+                            background: rgba(203, 166, 247, 0.1);
+                            color: #f5c2e7;
+                        }
+
+                        .M3Unator-dropdown-item.selected {
+                            background: rgba(203, 166, 247, 0.1);
+                            color: #cba6f7;
                         }
                     </style>
                 </div>
@@ -2430,7 +2925,11 @@
             };
 
             launcher.onclick = () => {
-                this.domElements.container.style.display = 'grid';
+                this.domElements.container.setAttribute('data-visible', 'true');
+                const overlay = document.createElement('div');
+                overlay.className = 'M3Unator-overlay';
+                document.body.appendChild(overlay);
+                
                 const popup = this.domElements.popup;
                 const rect = popup.getBoundingClientRect();
                 const centerX = (window.innerWidth - rect.width) / 2;
@@ -2439,15 +2938,16 @@
                 popup.style.top = `${centerY}px`;
             };
 
-            this.domElements.closeBtn.onclick = () => {
+            document.querySelector('.M3Unator-close').onclick = () => {
+                if (this.state.isGenerating) {
                 this.state.isGenerating = false;
                 this.state.isPaused = false;
-                
-                this.reset({ isCancelled: true });
-                
-                this.domElements.container.style.display = 'none';
-                
-                this.showToast('Operation cancelled', 'warning');
+                    this.reset({ isCancelled: true, enableToggles: true });
+                    this.showToast('Scan cancelled', 'warning');
+                }
+                this.domElements.container.removeAttribute('data-visible');
+                const overlay = document.querySelector('.M3Unator-overlay');
+                if (overlay) overlay.remove();
             };
 
             this.setupPopupHandlers();
@@ -3347,15 +3847,34 @@
                 }
 
                 const html = response.decodedText;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Handle LiteSpeed directory listing
+                const isLiteSpeed = doc.querySelector('div#table-list') !== null;
+                let hrefs = [];
+                
+                if (isLiteSpeed) {
+                    const rows = doc.querySelectorAll('#table-content tr');
+                    rows.forEach(row => {
+                        const link = row.querySelector('a');
+                        if (link && !link.textContent.includes('Parent Directory')) {
+                            const href = link.getAttribute('href');
+                            if (href) hrefs.push(href);
+                        }
+                    });
+                } else {
+                    // Handle Apache/Nginx style directory listing
                 const hrefRegex = /href="([^"]+)"/gi;
                 const matches = html.matchAll(hrefRegex);
-                const hrefs = Array.from(matches, m => m[1]).filter(href =>
+                    hrefs = Array.from(matches, m => m[1]).filter(href =>
                     href &&
                     !href.startsWith('?') &&
                     !href.startsWith('/') &&
                     href !== '../' &&
                     !href.includes('Parent Directory')
                 );
+                }
 
                 let totalFilesInCurrentDir = 0;
 
@@ -3586,16 +4105,29 @@
     // Event listeners for info modal
     document.querySelector('.info-link').addEventListener('click', () => {
         document.querySelector('.info-modal').style.display = 'block';
+        document.body.classList.add('modal-open');
     });
 
     document.querySelector('.info-close').addEventListener('click', () => {
         document.querySelector('.info-modal').style.display = 'none';
+        document.body.classList.remove('modal-open');
     });
 
     window.addEventListener('click', (event) => {
         const modal = document.querySelector('.info-modal');
         if (event.target === modal) {
             modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+        }
+    });
+
+    // Event listener for playlist name input
+    generator.domElements.playlistInput.addEventListener('input', (e) => {
+        const dropdown = e.target.parentElement.querySelector('.M3Unator-dropdown');
+        if (e.target.value.trim()) {
+            dropdown.style.display = 'block';
+        } else {
+            dropdown.style.display = 'none';
         }
     });
 })();

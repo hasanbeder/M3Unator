@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         M3Unator - Web Directory Playlist Creator
 // @namespace    https://github.com/hasanbeder/M3Unator
-// @version      1.0.0
+// @version      1.0.1
 // @description  Create M3U/M3U8 playlists from directory listing pages. Automatically finds video and audio files in web server indexes.
 // @author       Hasan Beder
 // @license      GPL-3.0
