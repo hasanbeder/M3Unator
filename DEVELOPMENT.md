@@ -1,4 +1,4 @@
-# M3Unator Development Documentation
+# M3Unator Development Documentation (v1.0.2)
 
 ## 🛠️ Development Environment Setup
 
@@ -44,147 +44,217 @@ M3Unator/
 └── LICENSE                    # License file
 ```
 
-## 🔧 Code Structure
+## 🔧 Core System Architecture
 
-### Main Components
+### 1. Ultrafast Scanning System
+- Parallel request processing (15 concurrent requests)
+- Batch operations (20 requests/batch)
+- Memory optimization system
+- Enhanced caching mechanism
+- Request queue management
 
-1. **UI Management**
-   * Modal window creation
-   * Form elements
-   * Progress indicators
-   * Status messages
+### 2. Memory Management
+- Target memory usage: 50MB - 200MB
+- Garbage collection optimization
+- Cache cleanup strategies
+- Memory leak prevention
+- Resource pooling
 
-2. **File System Operations**
-   * Directory scanning
-   * File filtering
-   * M3U creation
+### 3. Web Server Integration
+- Apache/Nginx parser optimization
+- LiteSpeed directory support
+- Protocol-specific optimizations
+- Header management
+- Connection pooling
 
-3. **State Management**
-   * Scanning status
-   * Statistics
-   * Error handling
+## 🎯 Implementation Details
 
-### Important Functions
-
-* `initializeUI()` - Initializes user interface
-* `scanDirectory()` - Performs directory scanning
-* `createM3U()` - Creates M3U file
-* `handleError()` - Handles errors
-
-## 🧪 Testing
-
-### Manual Testing
-
-1. Install userscript in your browser
-2. Follow the testing guide in `/tests/manual_testing_guide.md`
-3. Test all features systematically
-4. Document any issues found
-
-### Test Categories
-
-* UI Elements
-* File Operations
-* Error Handling
-* Settings Management
-* Performance
-* Internationalization
-* User Experience
-
-## 📝 Coding Standards
-
-### JavaScript
-
-* Use ES6+ features
-* Prefer async/await
-* Use class-based structure
-* Document with JSDoc
-
-### Style Rules
-
-* 2 spaces for indentation
-* Use semicolons
-* Prefer single quotes
-* Use camelCase naming
-
-### Example Code
-
+### 1. PlaylistGenerator Class
 ```javascript
-class MediaScanner {
+class PlaylistGenerator {
   constructor(options) {
-    this.options = options;
-    this.stats = {
-      files: 0,
-      directories: 0
-    };
+    this.concurrentRequests = 15;
+    this.batchSize = 20;
+    this.cacheSize = '100MB';
+    this.setupMemoryManagement();
   }
 
-  async scan() {
-    try {
-      // Implementation
-    } catch (error) {
-      this.handleError(error);
-    }
+  async scanDirectory() {
+    // Implement parallel scanning
+    // Handle batch processing
+    // Manage memory usage
+  }
+
+  setupMemoryManagement() {
+    // Configure garbage collection
+    // Initialize cache system
+    // Set up memory monitoring
   }
 }
 ```
 
-## 🚀 Deployment
+### 2. Performance Optimization
+```javascript
+const performanceConfig = {
+  scanning: {
+    parallel: 15,
+    batchSize: 20,
+    retryAttempts: 3,
+    timeout: 30000
+  },
+  memory: {
+    minUsage: '50MB',
+    maxUsage: '200MB',
+    gcInterval: 1000
+  },
+  cache: {
+    size: '100MB',
+    cleanupThreshold: '80%'
+  }
+};
+```
 
-### Version Numbering
+### 3. Security Implementation
+```javascript
+const securityConfig = {
+  rateLimit: {
+    requests: 100,
+    period: '1m',
+    backoff: 'exponential'
+  },
+  validation: {
+    xss: true,
+    paths: true,
+    ssl: true
+  },
+  headers: {
+    security: true,
+    cors: true
+  }
+};
+```
 
-* Semantic Versioning (MAJOR.MINOR.PATCH)
-* CHANGELOG.md updates
-* Git tags
+## 🚀 Feature Implementation Guide
 
-### Release Checklist
+### 1. UI Components
+- Toast notification system
+- Colored log categories
+- Real-time statistics
+- Progress indicators
+- Activity monitoring
 
-1. Run manual tests
-2. Update version number
-3. Update CHANGELOG.md
-4. Update meta file
-5. Create commit and tag
-6. Push to GitHub
+### 2. File Processing
+- Enhanced file type detection
+- Improved character encoding
+- Metadata extraction
+- URL normalization
+- Path validation
 
-## 🐛 Debugging
+### 3. Error Handling
+- Advanced error capture
+- Detailed logging
+- Recovery mechanisms
+- User notifications
+- State management
 
-### Browser Developer Tools
+## 📊 Performance Guidelines
 
-* Console messages
-* Network requests
-* Performance profiling
-* Memory leaks
+### 1. Memory Optimization
+- Keep memory usage below 200MB
+- Implement regular garbage collection
+- Use efficient data structures
+- Monitor memory patterns
+- Cache responsively
 
-### Common Issues
+### 2. Speed Optimization
+- Maintain 15 concurrent requests
+- Process in 20-request batches
+- Optimize network calls
+- Minimize DOM operations
+- Use efficient algorithms
 
-1. File system permissions
-2. Cross-origin requests
-3. Memory usage
-4. Performance bottlenecks
+### 3. Resource Management
+- Monitor CPU usage
+- Optimize network bandwidth
+- Manage cache size
+- Handle concurrent operations
+- Control resource allocation
 
-## 🔒 Security
+## 🔒 Security Implementation
 
-### Checklist
+### 1. Input Validation
+```javascript
+function validateInput(input) {
+  // XSS prevention
+  // Path traversal protection
+  // Character encoding
+  return sanitizedInput;
+}
+```
 
-* Validate user data
-* XSS protection
-* File system restrictions
-* API security
+### 2. Rate Limiting
+```javascript
+function rateLimit(request) {
+  // Request counting
+  // Time window management
+  // Backoff implementation
+  return allowRequest;
+}
+```
 
-### Best Practices
+### 3. Error Handling
+```javascript
+function handleError(error) {
+  // Error categorization
+  // User notification
+  // Logging
+  // Recovery attempt
+}
+```
 
-* Input validation
-* Output encoding
-* Error handling
-* Secure defaults
+## 🧪 Testing Guidelines
 
-## 📚 Resources
+### 1. Performance Testing
+- Verify concurrent request handling
+- Test batch processing
+- Monitor memory usage
+- Check response times
+- Validate cache efficiency
 
-* [JavaScript MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
-* [Tampermonkey Docs](https://www.tampermonkey.net/documentation.php)
-* [M3U Format Guide](https://github.com/hasanbeder/M3Unator/wiki/Playlist-Formats)
+### 2. Security Testing
+- Test XSS prevention
+- Verify rate limiting
+- Check input validation
+- Test error handling
+- Validate SSL/TLS
 
-## 🤝 Contact
+### 3. Integration Testing
+- Test server compatibility
+- Verify protocol handling
+- Check file processing
+- Validate UI updates
+- Test error recovery
 
-* [GitHub Issues](https://github.com/hasanbeder/M3Unator/issues)
-* [GitHub Discussions](https://github.com/hasanbeder/M3Unator/discussions)
-* [@hasanbeder on X](https://x.com/hasanbeder)
+## 📚 Development Resources
+
+- [JavaScript Performance Guide](https://developer.mozilla.org/en-US/docs/Web/Performance)
+- [Security Best Practices](https://owasp.org/www-project-top-ten/)
+- [Memory Management](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Memory_Management)
+- [Web Workers API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API)
+- [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
+
+## 🔄 Version Control
+
+### Release Process
+1. Update version numbers
+2. Run comprehensive tests
+3. Update documentation
+4. Create release notes
+5. Tag release
+
+### Version Scheme
+- MAJOR: Breaking changes
+- MINOR: New features
+- PATCH: Bug fixes
+
+*Note: This document is continuously updated with new features and improvements.*

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         M3Unator - Web Directory Playlist Creator
 // @namespace    https://github.com/hasanbeder/M3Unator
-// @version      1.0.1
+// @version      1.0.2
 // @description  Create M3U/M3U8 playlists from directory listing pages. Automatically finds video and audio files in web server indexes.
 // @author       Hasan Beder
 // @license      GPL-3.0
@@ -51,7 +51,7 @@
             rows.forEach(row => {
                 const linkElement = row.querySelector('a');
                 if (linkElement && !linkElement.textContent.includes('Parent Directory')) {
-                    const href = link.getAttribute('href');
+                    const href = linkElement.getAttribute('href');
                     if (href) {
                         links.push(new URL(href, window.location.href).href);
                     }
@@ -146,12 +146,12 @@
 
         body.modal-open {
             overflow: hidden;
-            pointer-events: none; /* Arka plan tıklamalarını engelle */
+            pointer-events: none; /* Prevent background clicks */
         }
 
         body.modal-open .M3Unator-container,
         body.modal-open .M3Unator-popup {
-            pointer-events: all; /* Modal içeriğine tıklamaya izin ver */
+            pointer-events: all; /* Allow clicks on modal content */
         }
 
         .M3Unator-popup {
@@ -261,7 +261,7 @@
 
         .M3Unator-input {
             width: 100%;
-            height: 42px; /* Create Playlist butonu ile aynı yükseklik */
+            height: 42px; /* Same height as Create Playlist button */
             padding: 0 12px;
             border: 1px solid #45475a;
             border-radius: 8px;
@@ -773,63 +773,77 @@
         .M3Unator-toast-container {
             position: fixed;
             bottom: 24px;
-            right: 24px;
-            z-index: 100002;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999999;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: auto;
         }
 
         .M3Unator-toast {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 12px 16px;
+            gap: 12px;
+            padding: 12px 24px;
             border-radius: 12px;
-            margin-top: 8px;
+            margin-bottom: 12px;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
             font-size: 14px;
             font-weight: 500;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            animation: toastIn 0.3s ease;
-            background: #1e1e2e;
+            background: rgba(17, 17, 27, 0.95);
             border: 2px solid;
+            pointer-events: all;
+            min-width: 300px;
+            max-width: 500px;
+            backdrop-filter: blur(16px);
+            will-change: transform, opacity;
+            animation: none;
+            transform-origin: center bottom;
         }
 
-        .M3Unator-toast.success {
-            color: #a6e3a1;
-            border-color: #a6e3a1;
-        }
-
-        .M3Unator-toast.error {
-            color: #f38ba8;
-            border-color: #f38ba8;
-        }
-
-        .M3Unator-toast.warning {
-            color: #fab387;
-            border-color: #fab387;
+        .M3Unator-toast.show {
+            animation: toastBounceIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         }
 
         .M3Unator-toast.removing {
-            animation: toastOut 0.3s ease forwards;
+            animation: toastBounceOut 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
         }
 
-        @keyframes toastIn {
-            from {
-                transform: translateX(100%);
+        @keyframes toastBounceIn {
+            0% {
                 opacity: 0;
+                transform: scale(0.3) translateY(2000px);
             }
-            to {
-                transform: translateX(0);
+            60% {
                 opacity: 1;
+                transform: scale(1.1) translateY(-20px);
+            }
+            75% {
+                transform: scale(0.95) translateY(10px);
+            }
+            90% {
+                transform: scale(1.02) translateY(-5px);
+            }
+            100% {
+                transform: scale(1) translateY(0);
             }
         }
 
-        @keyframes toastOut {
-            from {
-                transform: translateX(0);
+        @keyframes toastBounceOut {
+            0% {
+                transform: scale(1) translateY(0);
                 opacity: 1;
             }
-            to {
-                transform: translateX(100%);
+            20% {
+                transform: scale(1.1) translateY(-20px);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(0.3) translateY(2000px);
                 opacity: 0;
             }
         }
@@ -838,6 +852,39 @@
             width: 20px;
             height: 20px;
             flex-shrink: 0;
+            filter: drop-shadow(0 0 4px currentColor);
+            animation: iconPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            opacity: 0;
+            transform: scale(0.5);
+        }
+
+        @keyframes iconPop {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) rotate(-180deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        .M3Unator-toast span {
+            opacity: 0;
+            transform: translateX(-10px);
+            animation: textSlide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            animation-delay: 0.15s;
+        }
+
+        @keyframes textSlide {
+            0% {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
 
         .M3Unator-input-row {
@@ -1189,31 +1236,91 @@
 
         .M3Unator-log-toggle {
             width: 100%;
-            padding: 0.75rem;
-            background: #1e1e2e;
+            padding: 0.5rem 0.75rem;
+            background: rgba(203, 166, 247, 0.05);
             border: none;
             color: #cdd6f4;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
+            justify-content: space-between;
             cursor: pointer;
             transition: all 0.2s ease;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 6px;
         }
 
         .M3Unator-log-toggle:hover {
-            background: rgba(30, 30, 46, 0.8);
+            background: rgba(203, 166, 247, 0.1);
         }
 
-        .M3Unator-log-toggle svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
+        .M3Unator-activity-indicator {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #45475a;  /* Darker gray */
+            margin-left: auto;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .M3Unator-log-toggle.active svg {
-            transform: rotate(180deg);
+        .M3Unator-activity-indicator.active {
+            background: #89dceb;  /* Brighter blue */
+            box-shadow: 0 0 0 3px rgba(137, 220, 235, 0.2);
+            animation: pulseActive 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .M3Unator-activity-indicator.paused {
+            background: #f9e2af;  /* More visible yellow */
+            box-shadow: 0 0 0 3px rgba(249, 226, 175, 0.2);
+        }
+
+        .M3Unator-activity-indicator.error {
+            background: #f38ba8;  /* Current red is good */
+            box-shadow: 0 0 0 3px rgba(243, 139, 168, 0.2);
+        }
+
+        .M3Unator-activity-indicator.completed {
+            background: #94e2d5;  /* Brighter green-turquoise */
+            box-shadow: 0 0 0 3px rgba(148, 226, 213, 0.2);
+        }
+
+        @keyframes pulseActive {
+            0% {
+                box-shadow: 0 0 0 0 rgba(137, 220, 235, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 8px rgba(137, 220, 235, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(137, 220, 235, 0);
+            }
+        }
+
+        @keyframes pulsePaused {
+            0% {
+                box-shadow: 0 0 0 0 rgba(249, 226, 175, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 8px rgba(249, 226, 175, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(249, 226, 175, 0);
+            }
+        }
+
+        @keyframes completeScale {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
         }
 
         .M3Unator-toggle-container span svg .infinity-icon {
@@ -1616,37 +1723,82 @@
             background: rgba(203, 166, 247, 0.1);
         }
 
-        .M3Unator-log-toggle svg {
-            width: 18px;
-            height: 18px;
-            color: #cba6f7;
-            opacity: 0.8;
-            transition: all 0.2s ease;
-            margin-right: 0.5rem;
-        }
-
-        .M3Unator-log-toggle.active svg {
-            transform: rotate(180deg);
-            opacity: 1;
-        }
-
-        .M3Unator-log-counter {
-            background: rgba(203, 166, 247, 0.1);
-            color: #cba6f7;
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            min-width: 1.5rem;
-            text-align: center;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+        .M3Unator-activity-indicator {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #45475a;  /* Darker gray */
             margin-left: auto;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .M3Unator-log-toggle:hover .M3Unator-log-counter {
-            background: rgba(203, 166, 247, 0.15);
+        .M3Unator-activity-indicator.active {
+            background: #89dceb;  /* Brighter blue */
+            box-shadow: 0 0 0 3px rgba(137, 220, 235, 0.2);
+            animation: pulseActive 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .M3Unator-activity-indicator.paused {
+            background: #f9e2af;  /* More visible yellow */
+            box-shadow: 0 0 0 3px rgba(249, 226, 175, 0.2);
+        }
+
+        .M3Unator-activity-indicator.error {
+            background: #f38ba8;  /* Current red is good */
+            box-shadow: 0 0 0 3px rgba(243, 139, 168, 0.2);
+        }
+
+        .M3Unator-activity-indicator.completed {
+            background: #94e2d5;  /* Brighter green-turquoise */
+            box-shadow: 0 0 0 3px rgba(148, 226, 213, 0.2);
+        }
+
+        @keyframes pulseActive {
+            0% {
+                box-shadow: 0 0 0 0 rgba(137, 220, 235, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 8px rgba(137, 220, 235, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(137, 220, 235, 0);
+            }
+        }
+
+        @keyframes pulsePaused {
+            0% {
+                box-shadow: 0 0 0 0 rgba(249, 226, 175, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 8px rgba(249, 226, 175, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(249, 226, 175, 0);
+            }
+        }
+
+        @keyframes completeScale {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .M3Unator-log-toggle:hover .M3Unator-activity-indicator {
+            background: #6c7086;
+            animation: none;
+        }
+
+        .M3Unator-log-toggle.active .M3Unator-activity-indicator {
+            background: #6c7086;
+            animation: none;
         }
 
         .M3Unator-log-toggle .toggle-text {
@@ -1723,8 +1875,11 @@
         }
 
         .M3Unator-log-toggle {
-            padding: 0.5rem 0.75rem;
-            height: 36px;
+            padding: 10px 12px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .M3Unator-log-counter {
@@ -2226,6 +2381,61 @@
         }
     `);
 
+    GM_addStyle(`
+        .M3Unator-toast.success {
+            color: #a6e3a1;
+            border-color: #a6e3a1;
+            background: linear-gradient(rgba(17, 17, 27, 0.95), rgba(17, 17, 27, 0.95)), rgba(166, 227, 161, 0.1);
+        }
+
+        .M3Unator-toast.error {
+            color: #f38ba8;
+            border-color: #f38ba8;
+            background: linear-gradient(rgba(17, 17, 27, 0.95), rgba(17, 17, 27, 0.95)), rgba(243, 139, 168, 0.1);
+        }
+
+        .M3Unator-toast.warning {
+            color: #fab387;
+            border-color: #fab387;
+            background: linear-gradient(rgba(17, 17, 27, 0.95), rgba(17, 17, 27, 0.95)), rgba(250, 179, 135, 0.1);
+        }
+    `);
+
+    class LogCache {
+        constructor(maxSize = 100) {
+            this.maxSize = maxSize;
+            this.logs = [];
+            this.stats = {
+                totalLogs: 0,
+                skippedLogs: 0
+            };
+        }
+
+        add(message, type = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            this.logs.push({ message, type, timestamp });
+            this.stats.totalLogs++;
+            
+            if (this.logs.length > this.maxSize) {
+                this.logs.shift();
+                this.stats.skippedLogs++;
+            }
+        }
+
+        getSummary() {
+            return {
+                logs: [...this.logs],
+                stats: { ...this.stats }
+            };
+        }
+
+        clear() {
+            this.logs = [];
+            this.stats.totalLogs = 0;
+            this.stats.skippedLogs = 0;
+        }
+    }
+
     class PlaylistGenerator {
         constructor() {
             this.initialStats = {
@@ -2250,29 +2460,6 @@
                 totalFiles: 0
             };
 
-            this.domElements = {};
-
-            this.state = {
-                isGenerating: false,
-                isPaused: false,
-                selectedFormat: 'm3u',
-                includeVideo: false,
-                includeAudio: false,
-                maxEntries: 100000,
-                timeoutMs: 5000,
-                retryCount: 2,
-                maxDepth: 0,
-                maxSeenUrls: 5000,
-                stats: { ...this.initialStats }
-            };
-
-            this.sortOptions = { numeric: true, sensitivity: 'base' };
-
-            this.entries = [];
-            this.seenUrls = new Set();
-            this.toastQueue = [];
-            this.isProcessingToast = false;
-
             this.videoFormats = [
                 '.mp4', '.mkv', '.avi', '.webm', '.mov', '.flv', '.wmv', 
                 '.m4v', '.mpg', '.mpeg', '.3gp', '.vob', '.ts', '.mts',
@@ -2288,6 +2475,42 @@
                 '.ra', '.tta', '.voc', '.vox', '.amr', '.awb', '.dsf',
                 '.dff', '.alac', '.wv', '.oga', '.sln', '.aif', '.pcm'
             ];
+
+            // Create Map for file extensions
+            this.extensionMap = new Map();
+
+            // Add video extensions to Map
+            this.videoFormats.forEach(ext => {
+                this.extensionMap.set(ext.slice(1), 'video'); // .mp4 -> mp4
+            });
+
+            // Add audio extensions to Map
+            this.audioFormats.forEach(ext => {
+                this.extensionMap.set(ext.slice(1), 'audio'); // .mp3 -> mp3
+            });
+
+            this.domElements = {};
+
+            this.state = {
+                isGenerating: false,
+                isPaused: false,
+                selectedFormat: 'm3u',
+                includeVideo: false,
+                includeAudio: false,
+                maxEntries: 1000000,
+                timeoutMs: 5000,
+                retryCount: 2,
+                maxDepth: 0,
+                maxSeenUrls: 5000,
+                stats: { ...this.initialStats }
+            };
+
+            this.sortOptions = { numeric: true, sensitivity: 'base' };
+
+            this.entries = [];
+            this.seenUrls = new Set();
+            this.toastQueue = [];
+            this.isProcessingToast = false;
 
             this.icons = {
                 video: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2441,6 +2664,29 @@
             `;
 
             GM_addStyle(this.baseStyles);
+
+            this.updateActivityIndicator = (status) => {
+                const indicator = this.domElements.activityIndicator;
+                if (!indicator) return;
+                
+                // Remove all classes first
+                indicator.classList.remove('active', 'paused', 'cancelled', 'completed');
+                
+                // Status check
+                if (this.state.isGenerating) {
+                    if (this.state.isPaused) {
+                        indicator.classList.add('paused');
+                    } else {
+                        indicator.classList.add('active');
+                    }
+                } else if (status === 'cancelled') {
+                    indicator.classList.add('cancelled');
+                } else if (status === 'completed') {
+                    indicator.classList.add('completed');
+                }
+            };
+
+            this.logCache = new LogCache(100);
         }
 
         createComponent(type, props) {
@@ -2581,18 +2827,17 @@
                                 <span class="info-close">${this.icons.close}</span>
                             </div>
                             <div class="info-modal-body">
-                                <p><strong>M3Unator v1.0.1</strong> - Web Directory Playlist Creator</p>
-                                <p>Create M3U/M3U8 playlists from directory listing pages. Automatically finds video and audio files in web server indexes.</p>
-                                <h4>Features:</h4>
+                                <p><strong>M3Unator v1.0.2</strong> - The Ultimate Web Directory Playlist Creator</p>
+                                <p>Create M3U/M3U8 playlists effortlessly from any web directory. Experience ultrafast scanning and intelligent media detection.</p>
+                                <h4>Key Features:</h4>
                                 <ul>
-                                    <li>Supports video formats: MP4, MKV, AVI, etc.</li>
-                                    <li>Supports audio formats: MP3, M4A, FLAC, etc.</li>
-                                    <li>Recursive directory scanning</li>
-                                    <li>Custom playlist naming</li>
-                                    <li>Progress tracking</li>
-                                    <li>Dark theme interface</li>
+                                    <li>⚡ Ultrafast directory scanning with parallel processing</li>
+                                    <li>🎥 Comprehensive media support (MP4, MKV, MP3, FLAC, etc.)</li>
+                                    <li>🔍 Smart recursive directory scanning</li>
+                                    <li>🛡️ Enhanced error handling and stability</li>
+                                    <li>🌙 Modern dark theme interface</li>
                                 </ul>
-                                <p>For more information and updates, visit the <a href="https://github.com/hasanbeder/M3Unator" target="_blank">GitHub repository</a>.</p>
+                                <p>For updates and more information, visit the <a href="https://github.com/hasanbeder/M3Unator" target="_blank">GitHub repository</a>.</p>
                             </div>
                         </div>
                     </div>
@@ -2671,9 +2916,9 @@
                             <button class="M3Unator-log-toggle">
                                 <div class="toggle-text">
                                     ${this.icons.logToggle}
-                                    <span>Log Messages</span>
+                                    <span>Recent Activity</span>
                                 </div>
-                                <span class="M3Unator-log-counter">0</span>
+                                <div class="M3Unator-activity-indicator"></div>
                             </button>
                             <div id="scanLog" class="M3Unator-log collapsed"></div>
                         </div>
@@ -2922,6 +3167,7 @@
                 maxDepth: container.querySelector('#maxDepth'),
                 logToggle: container.querySelector('.M3Unator-log-toggle'),
                 logCounter: container.querySelector('.M3Unator-log-counter'),
+                activityIndicator: container.querySelector('.M3Unator-activity-indicator'),
             };
 
             launcher.onclick = () => {
@@ -3125,24 +3371,38 @@
                 document.body.appendChild(toastContainer);
             }
 
-            while (toastContainer.firstChild) {
-                toastContainer.removeChild(toastContainer.firstChild);
-            }
+            // Remove previous toasts
+            const existingToasts = toastContainer.querySelectorAll('.M3Unator-toast');
+            existingToasts.forEach(toast => {
+                toast.classList.add('removing');
+                setTimeout(() => toast.remove(), 300);
+            });
 
             const toast = document.createElement('div');
             toast.className = `M3Unator-toast ${type}`;
-            toast.innerHTML = `${this.icons[type]}<span>${message}</span>`;
-
+            
+            const icon = this.icons[type] || this.icons.info;
+            toast.innerHTML = `${icon}<span>${message}</span>`;
+            
             toastContainer.appendChild(toast);
+            
+            // Force a reflow to ensure the animation plays
+            void toast.offsetWidth;
+            
+            // Add show class to trigger animation
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
 
             setTimeout(() => {
                 toast.classList.add('removing');
+                toast.classList.remove('show');
                 setTimeout(() => {
                     if (toast.parentNode === toastContainer) {
-                        toastContainer.removeChild(toast);
+                        toast.remove();
                     }
                     if (toastContainer.children.length === 0) {
-                        document.body.removeChild(toastContainer);
+                        toastContainer.remove();
                     }
                 }, 300);
             }, duration);
@@ -3274,16 +3534,17 @@
                     const value = Math.min(99, Math.max(1, parseInt(e.target.value) || 1));
                     e.target.value = value;
                     this.state.maxDepth = value;
-                this.addLogEntry(
+                    this.addLogEntry(
                         `Directory scanning depth updated: ${value} ` +
                         `(current directory + ${value} sublevels)`, 
-                    'info'
-                );
+                        'info'
+                    );
                 }
             });
 
             pauseBtn.addEventListener('click', () => {
                 this.state.isPaused = true;
+                this.updateActivityIndicator('paused');
                 pauseBtn.style.display = 'none';
                 resumeBtn.style.display = 'flex';
                 
@@ -3298,6 +3559,7 @@
 
             resumeBtn.addEventListener('click', () => {
                 this.state.isPaused = false;
+                this.updateActivityIndicator('active');
                 resumeBtn.style.display = 'none';
                 pauseBtn.style.display = 'flex';
                 
@@ -3306,13 +3568,14 @@
                     <span>Creating...</span>
                 `;
                 
-                this.showToast('Scan in progress', 'success');
+                this.showToast('Scan resumed', 'success');
                 this.addLogEntry('Scan in progress...', 'success');
             });
 
             cancelBtn.addEventListener('click', () => {
                 this.state.isGenerating = false;
                 this.state.isPaused = false;
+                this.updateActivityIndicator('cancelled');
                 
                 setTimeout(() => {
                     this.reset({ isCancelled: true, enableToggles: true });
@@ -3325,6 +3588,7 @@
 
                 if (!playlistName) {
                     this.showToast('Please enter a valid playlist name', 'warning');
+                    playlistInput.focus();
                     return;
                 }
 
@@ -3340,12 +3604,13 @@
                     if (this.domElements.scanLog) {
                         this.domElements.scanLog.innerHTML = '';
                     }
-                    if (this.domElements.logCounter) {
-                        this.domElements.logCounter.textContent = '0';
-                    }
                     this.state.stats = JSON.parse(JSON.stringify(this.initialStats));
 
                     this.state.isGenerating = true;
+                    this.state.isPaused = false;
+                    this.updateActivityIndicator('active');
+                    this.showToast('Scan started', 'success');
+                    
                     generateBtn.disabled = true;
                     generateBtn.innerHTML = `
                         <div class="M3Unator-spinner"></div>
@@ -3378,6 +3643,8 @@
                     }
 
                     if (entries.length === 0) {
+                        this.state.isGenerating = false;
+                        this.updateActivityIndicator('cancelled');
                         this.showToast('No media files found', 'error');
                         this.reset({ isCancelled: true });
                         return;
@@ -3399,9 +3666,14 @@
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
 
+                    this.showToast(`Playlist "${fileName}" created successfully`, 'success');
+                    this.updateActivityIndicator('completed');
                     this.reset({ keepLogs: true, keepUI: true, enableToggles: true });
 
                 } catch (error) {
+                    this.state.isGenerating = false;
+                    this.state.isPaused = false;
+                    this.updateActivityIndicator('cancelled');
                     console.error('Error creating playlist:', error);
                     this.addLogEntry(`Error: ${error.message}`, 'error');
                     this.showToast('Error creating playlist', 'error');
@@ -3420,8 +3692,20 @@
                 wasGenerating = this.state.isGenerating
             } = options;
 
+            // Save current state before updating
+            const wasPaused = this.state.isPaused;
+            
             this.state.isGenerating = false;
             this.state.isPaused = false;
+            
+            // Update activity indicator
+            if (isCancelled || wasPaused) {
+                this.updateActivityIndicator('cancelled');
+            } else if (wasGenerating) {
+                this.updateActivityIndicator('completed');
+            } else {
+                this.updateActivityIndicator(null);
+            }
             
             if (!uiOnly) {
                 this.entries = [];
@@ -3490,10 +3774,6 @@
                     if (elements.scanLog) {
                         elements.scanLog.innerHTML = '';
                         elements.scanLog.classList.add('collapsed');
-                    }
-
-                    if (elements.logCounter) {
-                        elements.logCounter.textContent = '0';
                     }
 
                     if (elements.logToggle) {
@@ -3607,76 +3887,44 @@
             this.state.stats.errors.total++;
         }
 
-        async fetchWithRetry(url, options = {}) {
-            let response;
-            let retryCount = 0;
-            const maxRetries = this.state.retryCount;
-            const baseTimeout = 1000;
-            const maxTimeout = 10000;
-
-            while (retryCount <= maxRetries) {
+        async fetchWithRetry(url, options = {}, retries = 3) {
+            let lastError;
+            for (let i = 0; i < retries; i++) {
                 try {
-                    const controller = new AbortController();
-                    const currentTimeout = Math.min(
-                        maxTimeout,
-                        baseTimeout * Math.pow(2, retryCount) * (0.5 + Math.random())
-                    );
-                    
-                    const timeoutId = setTimeout(() => controller.abort(), currentTimeout);
-
-                    response = await fetch(url, {
+                    const response = await fetch(url, {
                         ...options,
-                        signal: controller.signal,
                         headers: {
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                            'Accept-Charset': 'utf-8',
-                            'Accept-Language': 'en-US,en;q=0.9,tr-TR;q=0.8,tr;q=0.7'
-                        }
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Connection': 'keep-alive',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                        },
+                        timeout: options.timeout || 30000,
+                        signal: options.signal
                     });
 
-                    clearTimeout(timeoutId);
-
-                    if (response.ok) {
-                        const contentType = response.headers.get('content-type');
-                        const charset = contentType && contentType.includes('charset=') 
-                            ? contentType.split('charset=')[1].toLowerCase()
-                            : 'utf-8';
-
-                        const buffer = await response.arrayBuffer();
-                        const decoder = new TextDecoder(charset);
-                        response.decodedText = decoder.decode(buffer);
-
-                        return response;
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
                     }
 
-                    throw new Error(`HTTP error! Status: ${response.status}`);
+                    const text = await response.text();
+                    return {
+                        decodedText: text,
+                        status: response.status,
+                        ok: response.ok
+                    };
                 } catch (error) {
-                    retryCount++;
-                    
-                    this.handleError(error, `URL: ${url}`);
-
-                    if (retryCount > maxRetries) {
-                        this.addLogEntry(
-                            `Maximum number of attempts reached (${maxRetries}), skipping directory: ${url}`,
-                            'error'
-                        );
-                        this.state.stats.errors.skipped++;
-                        throw error;
+                    lastError = error;
+                    if (error.name === 'AbortError' || error.message.includes('404')) {
+                        throw error; // Throw these errors immediately
                     }
-
-                    const backoffDelay = Math.min(
-                        maxTimeout,
-                        baseTimeout * Math.pow(2, retryCount - 1) * (0.5 + Math.random())
-                    );
-
-                    this.addLogEntry(
-                        `Retrying (${retryCount}/${maxRetries}), waiting for ${(backoffDelay/1000).toFixed(1)} seconds...`,
-                        'warning'
-                    );
-
-                    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                    if (i < retries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                        continue;
+                    }
                 }
             }
+            throw lastError;
         }
 
         sanitizeInput(input) {
@@ -3812,18 +4060,24 @@
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
 
-                const normalizedUrl = this.normalizeUrl(url);
+                // Encode special characters properly
+                const normalizedUrl = this.normalizeUrl(url).replace(/#/g, '%23')
+                    .replace(/\s+/g, '%20')
+                    .replace(/\[/g, '%5B')
+                    .replace(/\]/g, '%5D')
+                    .replace(/'/g, '%27')
+                    .replace(/"/g, '%22');
 
                 if (depth > this.state.stats.directories.depth) {
-                this.state.stats.directories.depth = depth;
+                    this.state.stats.directories.depth = depth;
                 }
 
                 this.state.stats.directories.total++;
 
-                this.addLogEntry(`Scanning directory (${depth}. level): ${normalizedUrl}`);
+                this.addLogEntry(`Scanning directory (level ${depth}): ${decodeURIComponent(normalizedUrl)}`);
 
                 if (this.seenUrls.has(normalizedUrl)) {
-                    this.addLogEntry(`Directory already scanned: ${normalizedUrl}`);
+                    this.addLogEntry(`This directory was previously scanned: ${decodeURIComponent(normalizedUrl)}`);
                     return this.entries;
                 }
 
@@ -3841,8 +4095,18 @@
 
                 let response;
                 try {
-                    response = await this.fetchWithRetry(normalizedUrl);
+                    response = await this.fetchWithRetry(normalizedUrl, {
+                        signal: null, // Remove cancel signal
+                        timeout: 30000 // 30 second timeout
+                    });
                 } catch (error) {
+                    if (error.name === 'AbortError') {
+                        this.addLogEntry(`Request cancelled: ${decodeURIComponent(normalizedUrl)}`, 'warning');
+                    } else if (error.message.includes('404')) {
+                        this.addLogEntry(`Directory not found: ${decodeURIComponent(normalizedUrl)}`, 'warning');
+                    } else {
+                        this.addLogEntry(`Connection error: ${error.message}`, 'error');
+                    }
                     return this.entries;
                 }
 
@@ -3850,64 +4114,79 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 
-                // Handle LiteSpeed directory listing
                 const isLiteSpeed = doc.querySelector('div#table-list') !== null;
                 let hrefs = [];
                 
                 if (isLiteSpeed) {
                     const rows = doc.querySelectorAll('#table-content tr');
                     rows.forEach(row => {
-                        const link = row.querySelector('a');
-                        if (link && !link.textContent.includes('Parent Directory')) {
-                            const href = link.getAttribute('href');
+                        const linkElement = row.querySelector('a');
+                        if (linkElement && !linkElement.textContent.includes('Parent Directory')) {
+                            const href = linkElement.getAttribute('href');
                             if (href) hrefs.push(href);
                         }
                     });
                 } else {
-                    // Handle Apache/Nginx style directory listing
-                const hrefRegex = /href="([^"]+)"/gi;
-                const matches = html.matchAll(hrefRegex);
+                    const hrefRegex = /href="([^"]+)"/gi;
+                    const matches = html.matchAll(hrefRegex);
                     hrefs = Array.from(matches, m => m[1]).filter(href =>
-                    href &&
-                    !href.startsWith('?') &&
-                    !href.startsWith('/') &&
-                    href !== '../' &&
-                    !href.includes('Parent Directory')
-                );
+                        href &&
+                        !href.startsWith('?') &&
+                        !href.startsWith('/') &&
+                        href !== '../' &&
+                        !href.includes('Parent Directory')
+                    );
                 }
 
-                let totalFilesInCurrentDir = 0;
+                // Separate directories and files
+                const directories = [];
+                const files = [];
 
                 for (const href of hrefs) {
+                    if (href.endsWith('/')) {
+                        directories.push(href);
+                    } else {
+                        files.push(href);
+                    }
+                }
+
+                // Process files in batches
+                const batchSize = 100; // Increased from 50 to 100
+                for (let i = 0; i < files.length; i += batchSize) {
                     if (!this.state.isGenerating || this.entries.length >= this.state.maxEntries) break;
 
-                    try {
-                        const decodedHref = this.decodeString(href);
-                        const fullUrl = new URL(decodedHref, normalizedUrl).toString();
-                        const { fileName } = this.extractFileInfo(decodedHref);
-                        const fullPath = currentPath ? `${currentPath}/${fileName}` : fileName;
+                    const batch = files.slice(i, i + batchSize);
+                    const batchProgress = {
+                        total: batch.length,
+                        processed: 0,
+                        success: 0,
+                        errors: 0
+                    };
 
-                        if (href.endsWith('/')) {
-                            const shouldScanSubdir = 
-                                this.state.maxDepth === -1 ||
-                                (this.state.maxDepth > 0 && depth < this.state.maxDepth);
-                            
-                            if (shouldScanSubdir) {
-                                this.addLogEntry(`Entering directory: ${fullPath}`);
-                                await this.scanDirectory(fullUrl, fullPath, depth + 1);
-                            }
-                        } else {
-                            totalFilesInCurrentDir++;
+                    // Use Set for better performance
+                    const processedUrls = new Set();
+
+                    await Promise.all(batch.map(async href => {
+                        try {
+                            // Skip if URL was previously processed
+                            const fullUrl = new URL(href, normalizedUrl).toString();
+                            if (processedUrls.has(fullUrl)) return;
+                            processedUrls.add(fullUrl);
+
+                            const decodedHref = this.decodeString(href);
+                            const { fileName } = this.extractFileInfo(decodedHref);
+                            const fullPath = currentPath ? `${currentPath}/${fileName}` : fileName;
+
                             this.state.stats.totalFiles = (this.state.stats.totalFiles || 0) + 1;
 
-                            const isVideo = this.isMediaFile(fileName, 'video');
-                            const isAudio = this.isMediaFile(fileName, 'audio');
-
-                            if ((isVideo && this.state.includeVideo) || (isAudio && this.state.includeAudio)) {
-                                if (isVideo && this.state.includeVideo) {
+                            // Check file type using Map
+                            const mediaType = this.isMediaFileOptimized(fileName);
+                            
+                            if (mediaType && ((mediaType === 'video' && this.state.includeVideo) || 
+                                            (mediaType === 'audio' && this.state.includeAudio))) {
+                                if (mediaType === 'video') {
                                     this.updateFileStats('video');
-                                }
-                                if (isAudio && this.state.includeAudio) {
+                                } else {
                                     this.updateFileStats('audio');
                                 }
 
@@ -3915,32 +4194,76 @@
                                     title: fullPath,
                                     url: fullUrl
                                 });
+                                batchProgress.success++;
+                            }
+                        } catch (error) {
+                            console.error('URL processing error:', error);
+                            this.state.stats.errors.total++;
+                            batchProgress.errors++;
+                        } finally {
+                            batchProgress.processed++;
+                            
+                            // Update progress every 20 operations (instead of 10)
+                            if (batchProgress.processed % 20 === 0 || batchProgress.processed === batchProgress.total) {
+                                const progress = Math.floor((batchProgress.processed / batchProgress.total) * 100);
+                                this.addLogEntry(
+                                    `Batch Processing: ${progress}% (${batchProgress.processed}/${batchProgress.total}, ` +
+                                    `Success: ${batchProgress.success}, Error: ${batchProgress.errors})`,
+                                    'info'
+                                );
                             }
                         }
-                        this.updateCounter(this.state.stats.totalFiles);
-                    } catch (error) {
-                        console.error('Error processing URL:', error);
-                        this.state.stats.errors.total++;
-                        continue;
+                    }));
+
+                    // Increase interval for memory cleanup
+                    if (i > 0 && i % (batchSize * 20) === 0) {
+                        global.gc && global.gc();
                     }
                 }
 
-                if (totalFilesInCurrentDir > 0) {
-                    this.addLogEntry(
-                        `"${currentPath || normalizedUrl}" directory contains ${totalFilesInCurrentDir} files`,
-                        'info'
-                    );
+                // Scan directories in parallel
+                const shouldScanSubdir = 
+                    this.state.maxDepth === -1 ||
+                    (this.state.maxDepth > 0 && depth < this.state.maxDepth);
+
+                if (shouldScanSubdir && directories.length > 0) {
+                    const parallelLimit = 15; // Parallel limit increased to 15
+                    const queue = [...directories];
+                    const activeRequests = new Set();
+                    
+                    while (queue.length > 0 || activeRequests.size > 0) {
+                        // Start new request if there are items in queue and active request limit is not reached
+                        while (queue.length > 0 && activeRequests.size < parallelLimit) {
+                            const dir = queue.shift();
+                            try {
+                                const decodedDir = this.decodeString(dir);
+                                const fullUrl = new URL(decodedDir, normalizedUrl).toString();
+                                const { fileName } = this.extractFileInfo(decodedDir);
+                                const fullPath = currentPath ? `${currentPath}/${fileName}` : fileName;
+
+                                const promise = this.scanDirectory(fullUrl, fullPath, depth + 1)
+                                    .finally(() => {
+                                        activeRequests.delete(promise);
+                                    });
+
+                                activeRequests.add(promise);
+                                this.addLogEntry(`Entering subdirectory: ${fullPath}`);
+                            } catch (error) {
+                                console.error('Directory scanning error:', error);
+                                this.state.stats.errors.total++;
+                            }
+                        }
+
+                        // Wait for one of the active requests to complete
+                        if (activeRequests.size > 0) {
+                            await Promise.race(activeRequests);
+                        }
+                    }
                 }
 
-                const statsText = this.getCurrentStatsText();
-                if (statsText) {
-                    this.addLogEntry(
-                        `From these, ${statsText} files were added to the playlist`,
-                        'success'
-                    );
-                }
-
+                this.updateCounter(this.state.stats.totalFiles);
                 return this.entries;
+
             } catch (error) {
                 this.state.stats.errors.total++;
                 this.addLogEntry(`Scan error (${currentPath || url}): ${error.message}`, 'error');
@@ -4010,19 +4333,10 @@
         }
 
         addLogEntry(message, type = '') {
-
             if ((this.state.isPaused || !this.state.isGenerating) && type !== 'final') {
                 return;
             }
 
-            const scanLog = this.domElements.scanLog;
-            const logCounter = this.domElements.logCounter;
-            
-            this.logCount++;
-            if (logCounter) {
-                logCounter.textContent = this.logCount;
-            }
-            
             let decodedMessage = message;
             try {
                 if (message.includes('http')) {
@@ -4038,15 +4352,87 @@
             } catch (error) {
                 console.warn('Decode error:', error);
             }
-            
-            const entry = document.createElement('div');
-            entry.className = `M3Unator-log-entry ${type}`;
 
-            const timestamp = new Date().toLocaleTimeString();
-            entry.innerHTML = `<span class="M3Unator-log-time">[${timestamp}]</span> ${decodedMessage}`;
+            // Add only to cache
+            this.logCache.add(decodedMessage, type);
+
+            // Update UI every 10 logs
+            if (this.logCache.stats.totalLogs % 10 === 0) {
+                this.updateLogUI();
+            }
+        }
+
+        updateLogUI() {
+            const scanLog = this.domElements.scanLog;
+            if (!scanLog) return;
+
+            // Add throttle for performance
+            if (this._updateLogUITimeout) {
+                clearTimeout(this._updateLogUITimeout);
+            }
+
+            this._updateLogUITimeout = setTimeout(() => {
+                requestAnimationFrame(() => {
+                    const wasAtBottom = Math.abs(scanLog.scrollHeight - scanLog.clientHeight - scanLog.scrollTop) < 50;
+                    
+                    // Use fragment to minimize DOM manipulation
+                    const fragment = document.createDocumentFragment();
+                    
+                    // Show last 50 logs (instead of 100)
+                    const recentLogs = this.logCache.logs.slice(-50);
+                    
+                    recentLogs.forEach(log => {
+                        const div = document.createElement('div');
+                        div.className = `M3Unator-log-entry ${log.type}`;
+                        div.innerHTML = `
+                            <span class="M3Unator-log-time">${log.timestamp}</span>
+                            <span class="M3Unator-log-content">${log.message}</span>
+                        `;
+                        fragment.appendChild(div);
+                    });
+
+                    scanLog.innerHTML = '';
+                    scanLog.appendChild(fragment);
+
+                    if (wasAtBottom) {
+                        scanLog.scrollTop = scanLog.scrollHeight;
+                    }
+                });
+            }, 100); // 100ms throttle
+        }
+
+        generateScanReport() {
+            const stats = this.state.stats;
+            const logCache = this.logCache;
             
-            scanLog.appendChild(entry);
-            scanLog.scrollTop = scanLog.scrollHeight;
+            const summary = [
+                `📊 Scan Summary`,
+                `───────────────`,
+                `📁 Total Files: ${stats.totalFiles}`,
+                `🎥 Video Files: ${stats.files.video.total}`,
+                `🎵 Audio Files: ${stats.files.audio.total}`,
+                `📂 Directories: ${stats.directories.total}`,
+                `↕️ Maximum Depth: ${stats.directories.depth}`,
+                stats.errors.total > 0 ? 
+                    `⚠️ Errors: ${stats.errors.total} (${stats.errors.skipped} skipped)` : 
+                    null,
+                ``,
+                `📝 Log Statistics`,
+                `───────────────`,
+                `Total Logs: ${logCache.stats.totalLogs}`,
+                logCache.stats.skippedLogs > 0 ? 
+                    `Skipped Logs: ${logCache.stats.skippedLogs}` :
+                    null,
+                ``,
+                `🔍 Last ${logCache.maxSize} Log Entries`,
+                `───────────────`,
+                ...logCache.logs.map(log => 
+                    `[${log.timestamp}] ${log.type === 'error' ? '❌' : 
+                                       log.type === 'warning' ? '⚠️' : 
+                                       log.type === 'success' ? '✅' : 'ℹ️'} ${log.message}`)
+            ].filter(Boolean).join('\n');
+
+            return summary;
         }
 
         updateCounter(count) {
@@ -4096,6 +4482,12 @@
                     }
                 }
             });
+        }
+
+        // Add new method for file type checking
+        isMediaFileOptimized(fileName) {
+            const extension = fileName.toLowerCase().split('.').pop();
+            return this.extensionMap.get(extension);
         }
     }
 

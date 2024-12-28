@@ -1,14 +1,14 @@
-# M3Unator 🎬 🎵
+# M3Unator - Web Directory Playlist Creator
 
 <div align="center">
 
 ![M3Unator Banner](https://raw.githubusercontent.com/hasanbeder/M3Unator/main/screenshots/screenshot.png)
 
 <p align="center">
-  <a href="https://github.com/hasanbeder/M3Unator/releases"><img src="https://img.shields.io/badge/version-1.0.1-blue.svg?style=flat-square" alt="Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-green.svg?style=flat-square" alt="License"></a>
-  <a href="https://github.com/hasanbeder/M3Unator/stargazers"><img src="https://img.shields.io/github/stars/hasanbeder/M3Unator?style=flat-square&color=yellow" alt="GitHub stars"></a>
-  <a href="https://greasyfork.org/en/scripts/521593-m3unator-web-directory-playlist-creator"><img src="https://img.shields.io/badge/Greasyfork-Install-red.svg?style=flat-square" alt="Greasyfork"></a>
+  <a href="https://github.com/hasanbeder/M3Unator/releases"><img src="https://img.shields.io/badge/version-1.0.2-blue.svg?style=for-the-badge" alt="Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-green.svg?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/hasanbeder/M3Unator/stargazers"><img src="https://img.shields.io/github/stars/hasanbeder/M3Unator?style=for-the-badge&color=yellow" alt="GitHub stars"></a>
+  <a href="https://greasyfork.org/en/scripts/521593-m3unator-web-directory-playlist-creator"><img src="https://img.shields.io/badge/Greasyfork-Install-red.svg?style=for-the-badge" alt="Greasyfork"></a>
 </p>
 
 <h3>
@@ -28,6 +28,73 @@
 </p>
 
 </div>
+
+## ✨ What's New in v1.0.2
+
+### 🚀 Performance Enhancements
+- Ultrafast scanning system with lightning-quick directory processing
+- Optimized memory management for better resource utilization
+- Enhanced caching system for improved performance
+- Parallel request limit increased to 15 for faster scanning
+
+### 🌐 Web Server Support
+- Improved Apache/Nginx directory listings support
+- Added LiteSpeed directory support
+- Optimized link extraction and processing
+- Enhanced URL validation and handling
+
+### 🛡️ Security & Stability
+- Smart retry mechanism with exponential backoff
+- Advanced error handling with detailed reporting
+- Enhanced security features and validations
+- Improved character encoding support
+
+### 📊 UI/UX Improvements
+- Beautiful toast notifications system
+- Real-time progress tracking with detailed stats
+- Colored log categories for better visibility
+- Activity indicator for real-time operation status
+
+## 🎯 Installation
+
+1. Install a userscript manager:
+   - [Tampermonkey](https://www.tampermonkey.net/) (Recommended)
+   - [Violentmonkey](https://violentmonkey.github.io/)
+
+2. Install M3Unator:
+   - [Install from Greasy Fork](https://greasyfork.org/en/scripts/521593-m3unator-web-directory-playlist-creator) (Recommended)
+   - [Install from GitHub](https://raw.githubusercontent.com/hasanbeder/M3Unator/main/M3Unator.user.js)
+
+> **Note**: For Tampermonkey v5.0+, enable developer mode in your browser's extensions settings.
+
+## ⚡ Quick Start
+
+1. Install Tampermonkey & M3Unator
+2. Visit any directory listing page
+3. Click M3Unator button (top-right)
+4. Hit "Create Playlist" - Done! 🎉
+
+[Need more details? Check the full usage guide →](#-usage)
+
+## 🎯 Core Features
+
+### 🎬 Media Support
+- Comprehensive support for 40+ media formats
+- Smart file type detection using Map structure
+- Enhanced character encoding for international files
+- Automatic media file filtering
+
+### 🔍 Directory Scanning
+- Configurable scanning depth
+- Smart subdirectory handling
+- Efficient file discovery
+- Progress tracking and statistics
+
+### 🎨 User Interface
+- Modern dark theme design
+- Intuitive controls and settings
+- Real-time status updates
+- Clean and responsive layout
 
 ## 📖 What are Open Directories?
 
@@ -77,103 +144,80 @@ intitle:"index of" "your search term" (mp4|mkv) -html
 
 </details>
 
-## ✨ Features
-
-### 🎯 Core Functionality
-- Automatic playlist creation from directory listings
-- Smart detection of video and audio files
-- Support for Apache, Nginx, Lighttpd, LiteSpeed, and other web servers
-- Configurable directory scanning depth
-- Fault-tolerant design with retry mechanism
-- Real-time progress tracking
-
-### 🎨 User Interface
-- Modern and intuitive dark theme design
-- Pause/Resume scanning capability
-- Live progress indicators
-- Toast notifications
-- Detailed logging system
-
-## 🚀 Installation
-
-1. Install a userscript manager:
-   - [Tampermonkey](https://www.tampermonkey.net/) (Recommended)
-   - [Violentmonkey](https://violentmonkey.github.io/)
-
-2. Install M3Unator:
-   - [Click here to install](https://raw.githubusercontent.com/hasanbeder/M3Unator/main/M3Unator.user.js)
-   - Click "Install" in the userscript manager popup
-
-> **Note for Tampermonkey v5.0+**:  
-> Enable developer mode in your browser's extensions settings.
-
 ## 📁 Supported Formats
 
 ### 🎬 Video Files
-mp4, mkv, avi, webm, mov, flv, wmv, m4v, mpg, mpeg, 
-3gp, vob, ts, mts, m2ts, divx, xvid, asf, ogv, rm, 
-rmvb, qt, hevc, f4v
+`mp4` `mkv` `avi` `webm` `mov` `flv` `wmv` `m4v` `mpg` `mpeg` 
+`3gp` `vob` `ts` `mts` `m2ts` `divx` `xvid` `asf` `ogv` `rm` 
+`rmvb` `qt` `hevc` `f4v`
 
 ### 🎵 Audio Files
-mp3, m4a, wav, flac, aac, ogg, wma, opus, aiff, ape, 
-mka, ac3, dts, m4b, mp2, mpa, mpc, ra, tta, voc
+`mp3` `m4a` `wav` `flac` `aac` `ogg` `wma` `opus` `aiff` `ape` 
+`mka` `ac3` `dts` `m4b` `mp2` `mpa` `mpc` `ra` `tta` `voc`
 
 ## 💡 Usage
 
 1. Navigate to any directory listing page
 2. Click the M3Unator button in the top-right corner
-3. Configure your preferences (or use defaults):
-   - Select media types (video/audio) - Default: both enabled
-   - Set scanning depth - Default: recursive (unlimited)
-   - Choose output format (M3U/M3U8) - Default: M3U
+3. Configure your preferences:
+   - Select media types (video/audio)
+   - Set scanning depth
+   - Choose output format (M3U/M3U8)
 4. Click "Create Playlist"
-5. Wait for the scan to complete
+5. Monitor real-time progress
 6. Save your playlist file
 
 ### ⚙️ Configuration Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| Media Types | Choose video and/or audio files | Both enabled |
-| Scan Depth | Set directory scanning depth (0-99) | Recursive (unlimited) |
-| Format | Choose between M3U and M3U8 | M3U |
-| Timeout | Request timeout duration | 5000ms |
-| Retry Count | Number of retry attempts | 2 |
+| Option | Description | Default | Range |
+|--------|-------------|---------|--------|
+| Media Types | Choose video and/or audio files | Both enabled | - |
+| Scan Depth | Set directory scanning depth | Unlimited | 0-99 |
+| Format | Choose between M3U and M3U8 | M3U | - |
+| Parallel Requests | Number of concurrent requests | 15 | 1-20 |
+| Timeout | Request timeout duration | 10000ms | 5000-30000ms |
+| Retry Count | Number of retry attempts | 3 | 0-5 |
+| Retry Delay | Initial retry delay (doubles each retry) | 1000ms | 500-5000ms |
 
 ## 🔍 Browser Compatibility
 
-| Browser | Support | Minimum Version |
-|---------|---------|----------------|
-| Chrome | ✅ | 88+ |
-| Firefox | ✅ | 78+ |
-| Edge | ✅ | 88+ |
-| Safari | ⚠️ | 14+ |
-| Opera | ✅ | 74+ |
+| Browser | Support | Minimum Version | Notes |
+|---------|---------|----------------|--------|
+| Chrome | ✅ | 88+ | Fully supported |
+| Firefox | ✅ | 78+ | Fully supported |
+| Edge | ✅ | 88+ | Fully supported |
+| Safari | ⚠️ | 14+ | Limited support |
+| Opera | ✅ | 74+ | Fully supported |
 
 ## ❓ FAQ
 
 <details>
 <summary><b>Why isn't the M3Unator button appearing?</b></summary>
-Ensure you're on a directory listing page and your userscript manager is enabled.
+Ensure you're on a directory listing page and your userscript manager is properly installed and enabled.
 </details>
 
 <details>
-<summary><b>Why are some files skipped?</b></summary>
-Files might be unsupported formats or inaccessible. Check the log for details.
+<summary><b>Why are some files skipped during scanning?</b></summary>
+Files might be in unsupported formats, inaccessible, or blocked. Check the colored log for detailed information.
 </details>
 
 <details>
-<summary><b>How do I scan subdirectories?</b></summary>
-Enable recursive scanning and set your desired depth in the settings.
+<summary><b>How do I scan subdirectories efficiently?</b></summary>
+Enable recursive scanning in settings. Use the depth level indicator to monitor progress in deep directory structures.
+</details>
+
+<details>
+<summary><b>What's the best way to handle large directories?</b></summary>
+The new ultrafast scanning system handles large directories efficiently. You can also use the depth setting to limit scanning scope.
 </details>
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting pull requests.
+We welcome contributions! Please check our [Contributing Guidelines](CONTRIBUTING.md) before submitting pull requests.
 
-### Additional Resources
-- [Development Guide](DEVELOPMENT.md) - Detailed information for developers
-- [Security Policy](SECURITY.md) - Security vulnerability reporting
+### Development Resources
+- [Development Guide](DEVELOPMENT.md) - Setup and coding standards
+- [Security Policy](SECURITY.md) - Security practices and reporting
 - [Code of Conduct](CODE_OF_CONDUCT.md) - Community guidelines
 
 ## 📄 License
@@ -182,27 +226,58 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## 🙏 Acknowledgments
 
-- All our [contributors](https://github.com/hasanbeder/M3Unator/graphs/contributors)
+- Our amazing [contributors](https://github.com/hasanbeder/M3Unator/graphs/contributors)
 - The open-source community
-- Users who provide valuable feedback
+- Users providing valuable feedback and suggestions
 
-## 📬 Contact
+## 📬 Contact & Support
 
 - GitHub: [@hasanbeder](https://github.com/hasanbeder)
-- Twitter/X: [@hasanbeder](https://twitter.com/hasanbeder)
-- Issues: [Bug Reports](https://github.com/hasanbeder/M3Unator/issues)
+- X: [@hasanbeder](https://x.com/hasanbeder)
+- Issues: [Bug Reports & Feature Requests](https://github.com/hasanbeder/M3Unator/issues)
+- Discussions: [Community Forum](https://github.com/hasanbeder/M3Unator/discussions)
 
-## 📚 Resources
+## 📚 Additional Resources
 
-- [GitHub Wiki](https://github.com/hasanbeder/M3Unator/wiki) - Detailed guides and documentation
-- [GitHub Discussions](https://github.com/hasanbeder/M3Unator/discussions) - Community discussions and Q&A
-- [Release Notes](CHANGELOG.md) - Version history and changes
-- [Security Policy](SECURITY.md) - Security guidelines and reporting
+- [Documentation](https://github.com/hasanbeder/M3Unator/wiki)
+- [Version History](CHANGELOG.md)
+- [Security Guidelines](SECURITY.md)
+- [Community Discussions](https://github.com/hasanbeder/M3Unator/discussions)
 
 ---
 
 <div align="center">
-Made with ❤️ by <a href="https://github.com/hasanbeder">Hasan Beder</a>
 
-If you find M3Unator helpful, please consider giving it a ⭐
+<p align="center">
+  <img src="https://img.shields.io/badge/Made_with_❤️_by-Hasan_Beder-blue.svg?style=for-the-badge" alt="Author">
+</p>
+
+<p align="center">
+  <a href="https://github.com/hasanbeder/M3Unator/stargazers">
+    <img src="https://img.shields.io/github/stars/hasanbeder/M3Unator?style=for-the-badge&color=yellow" alt="Stars">
+  </a>
+  <a href="https://github.com/hasanbeder/M3Unator/network/members">
+    <img src="https://img.shields.io/github/forks/hasanbeder/M3Unator?style=for-the-badge&color=orange" alt="Forks">
+  </a>
+  <a href="https://github.com/hasanbeder/M3Unator/issues">
+    <img src="https://img.shields.io/github/issues/hasanbeder/M3Unator?style=for-the-badge&color=red" alt="Issues">
+  </a>
+</p>
+
+<p align="center">
+  <b>Support the Project</b><br>
+  ⭐ Star the repository<br>
+  🔄 Share with the community<br>
+  🛠️ Submit issues and contribute
+</p>
+
+<p align="center">
+  <a href="https://github.com/hasanbeder">
+    <img src="https://img.shields.io/badge/Follow-hasanbeder-1da1f2?style=for-the-badge&logo=github" alt="Follow on GitHub">
+  </a>
+  <a href="https://x.com/hasanbeder">
+    <img src="https://img.shields.io/badge/Follow-hasanbeder-000000?style=for-the-badge&logo=x" alt="Follow on X">
+  </a>
+</p>
+
 </div> 

@@ -1,5 +1,22 @@
 # Contributing to M3Unator
 
+## Development Setup
+- Updated build requirements
+- Enhanced testing environment
+- Performance monitoring tools
+
+## Code Standards
+- Class-based architecture
+- Modular code structure
+- Error handling practices
+- Performance optimization guidelines
+
+## Testing Guidelines
+- Performance benchmark tests
+- Memory usage tests
+- Web server compatibility tests
+- Character encoding tests
+
 Thank you for your interest in contributing to M3Unator! This document provides guidelines and instructions for contributing to the project.
 
 ## 📋 Code of Conduct
