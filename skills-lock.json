@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "project-bootstrapper": {
+      "source": "ersinkoc/project-bootstrap",
+      "sourceType": "github",
+      "computedHash": "6e4452f68b3e1e7dc99465f95e4e47d50b55414a82fe28c3f7f100574bd148ab"
+    }
+  }
+}

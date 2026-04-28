@@ -1,0 +1,58 @@
+{
+  "name": "project-bootstrap",
+  "version": "2.0.0",
+  "description": "Universal meta-skill that bootstraps ANY software project by auto-generating a complete suite of project-specific coding skills",
+  "main": "scripts/validate_bootstrap.js",
+  "scripts": {
+    "validate": "node scripts/validate_bootstrap.js .claude/skills/",
+    "validate:py": "python scripts/validate_bootstrap.py .claude/skills/",
+    "check-versions": "node scripts/version_checker.js .claude/skills/",
+    "check-versions:py": "python scripts/version_checker.py .claude/skills/",
+    "check-compliance": "node scripts/check_skill_compliance.js src/",
+    "check-compliance:py": "python scripts/check_skill_compliance.py src/",
+    "analyze-coverage": "node scripts/analyze_skill_coverage.js src/",
+    "analyze-coverage:py": "python scripts/analyze_skill_coverage.py src/",
+    "report": "node scripts/generate_compliance_report.js --week",
+    "report:py": "python scripts/generate_compliance_report.py --week",
+    "test": "echo 'No tests yet - add your test runner here'",
+    "lint": "echo 'No linter configured - add your linter here'",
+    "typecheck": "echo 'No type checker configured - add your type checker here'"
+  },
+  "keywords": [
+    "skills",
+    "bootstrap",
+    "code-quality",
+    "standards",
+    "validation",
+    "compliance",
+    "claude-code",
+    "ai-assistant"
+  ],
+  "author": "Ersin Koç",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ersinkoc/project-bootstrap.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ersinkoc/project-bootstrap/issues"
+  },
+  "homepage": "https://github.com/ersinkoc/project-bootstrap#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": {
+    "validate-skills": "./scripts/validate_bootstrap.js",
+    "check-versions": "./scripts/version_checker.js",
+    "check-compliance": "./scripts/check_skill_compliance.js"
+  },
+  "files": [
+    "SKILL.md",
+    "README.md",
+    "LICENSE",
+    "references/",
+    "scripts/",
+    "examples/",
+    "templates/"
+  ]
+}

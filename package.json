@@ -1,0 +1,39 @@
+{
+  "name": "m3unator",
+  "private": true,
+  "description": "Contributor tooling for the M3Unator userscript",
+  "scripts": {
+    "build": "node scripts/build_userscript.js",
+    "test:e2e:chromium": "node scripts/run_browser_smoke.js chromium",
+    "test:e2e:firefox": "node scripts/run_browser_smoke.js firefox",
+    "test:e2e": "npm run test:e2e:chromium && npm run test:e2e:firefox",
+    "test:logic": "node --test tests/logic/directory_parsing.test.js tests/logic/output_helpers.test.js tests/logic/startup_detection.test.js",
+    "validate:skills": "node scripts/validate_bootstrap.js .claude/skills",
+    "check:versions": "node scripts/version_checker.js .claude/skills",
+    "check:compliance": "node scripts/check_skill_compliance.js --file M3Unator.user.js",
+    "verify": "node scripts/build_userscript.js && node scripts/validate_bootstrap.js .claude/skills && node scripts/version_checker.js .claude/skills && node scripts/check_skill_compliance.js --file M3Unator.user.js && npm run test:logic",
+    "lint": "eslint M3Unator.user.js scripts/ tests/",
+    "lint:fix": "eslint M3Unator.user.js scripts/ tests/ --fix",
+    "format": "prettier --write \"M3Unator.user.js\" \"scripts/**/*.js\" \"tests/**/*.js\"",
+    "format:check": "prettier --check \"M3Unator.user.js\" \"scripts/**/*.js\" \"tests/**/*.js\"",
+    "release": "release-it",
+    "release:dry": "release-it --dry-run",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "{M3Unator.user.js,scripts/**/*.js,tests/**/*.js}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@release-it/conventional-changelog": "^10.0.6",
+    "eslint": "^9.39.4",
+    "globals": "^17.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
+    "release-it": "^19.2.4"
+  }
+}

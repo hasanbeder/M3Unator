@@ -2,6 +2,69 @@
 
 This document outlines the manual testing procedures for the M3Unator userscript version 1.0.2.
 
+## Pre-Flight Checks
+
+Before browser QA:
+
+1. Build the root artifacts from `src/runtime/M3Unator.user.js`
+   ```bash
+   node scripts/build_userscript.js
+   ```
+2. Run the local validation triplet
+   ```bash
+   node scripts/validate_bootstrap.js .claude/skills
+   node scripts/version_checker.js .claude/skills
+   node scripts/check_skill_compliance.js --file M3Unator.user.js
+   ```
+3. Run the local logic regression suite before browser QA, especially after parser, scan, or playlist changes
+   ```bash
+   npm run test:logic
+   ```
+4. Run the local browser smoke matrix on the fixture server before wider manual QA
+   ```bash
+   npm run test:e2e
+   ```
+
+## Local Browser Smoke Harness
+
+- `npm run test:e2e` starts a local fixture server with nested Apache-style and LiteSpeed-style directory listings.
+- The smoke suite covers Chromium and Firefox.
+- The automated checks verify launcher mount, recursive scan depth, pause/resume/cancel transitions, log rendering, stats updates, and playlist export.
+- Treat this as the fast release gate before moving to broader manual coverage on real hosts.
+
+## Local Logic Regression Matrix
+
+- Apache-style fixture must keep relative directory and file href extraction stable.
+- Nginx-style fixture must keep query-link filtering and relative path extraction stable.
+- LiteSpeed-style fixture must keep table-row parsing and parent-directory filtering stable.
+- Lighttpd-style fixture must keep sortable header links from polluting scan candidates.
+- IIS-style fixture must keep parent-navigation and sortable header links out of scan candidates.
+- Caddy-style fixture must ignore breadcrumb root links while keeping relative directory and media hrefs.
+- Startup detection must mount on Apache, Nginx, LiteSpeed, Lighttpd, IIS, and Caddy fixtures while still rejecting non-listing breadcrumb/table pages.
+- Startup detection must also mount on real Apache archive pages without `Index of` in the title and on IIS listings that use `localhost - /path/` style titles with `[To Parent Directory]`.
+- Startup detection must not mount on non-listing host pages such as GitHub repository views that happen to contain code blocks, query tabs, or same-path child links.
+- Apache/Nginx `pre` listings must ignore nav/footer anchors outside the actual listing container.
+- Recursive fetches must skip non-listing HTML pages even when they contain incidental relative links.
+- Playlist/export helpers must keep decoded titles, ordering, and extension classification stable.
+- `.m3u` exports must remain plain extended M3U, while `.m3u8` exports must prepend a UTF-8 BOM and use the UTF-8/HLS MIME path.
+- Recursive scans must preserve decoded subdirectory names in both exported playlist titles and activity log entries.
+- Short scans with fewer than ten log events must still populate the `Recent Activity` panel, including LiteSpeed listings.
+- Large single-directory scans with 2000+ files must stay responsive, avoid console crashes tied to forced GC paths, and still honor pause/cancel between file batches.
+
+## Release Coverage Matrix
+
+Minimum release-family matrix:
+- Apache `mod_autoindex`
+- Nginx autoindex
+- LiteSpeed or OpenLiteSpeed directory listing
+- Lighttpd `mod_dirlisting`
+- IIS directory browsing
+- Caddy `file_server browse`
+
+Optional extended matrix:
+- Python `http.server`
+- Express `serve-index`
+
 ## Core System Tests
 
 ### 1. Ultrafast Scanning System
@@ -15,6 +78,10 @@ This document outlines the manual testing procedures for the M3Unator userscript
 - Test Apache directory listings
 - Test Nginx directory listings
 - Verify LiteSpeed directory support
+- Verify Lighttpd directory support
+- Verify IIS directory browsing support
+- Verify Caddy directory browsing support
+- Verify the M3Unator launcher mounts on each supported listing family before scan actions begin
 - Check different directory structures
 - Validate URL handling
 
@@ -30,16 +97,25 @@ This document outlines the manual testing procedures for the M3Unator userscript
 ### 1. Modal Window
 - Click the M3Unator button
 - Verify modal window appearance
+- Verify the floating launcher hides while the panel is open and reappears on close
+- Verify background scroll/click lock stays active while the panel is open, including after opening and closing `About`
+- Verify focus moves to `Playlist Name` when the panel opens and returns to the launcher when it closes
+- Verify `Escape` closes `About` first and closes the main panel when idle
 - Check all UI elements
 - Test close button functionality
 - Verify drag-and-drop movement
 
 ### 2. Enhanced UI Features
+- Verify the format selector stays hidden until a playlist name is entered
+- Verify each main toggle shows a visible label and helper text without relying on hover tooltips
 - Verify toast notifications
 - Check colored log categories
 - Test depth level indicator
 - Monitor real-time statistics
+- Verify large stat totals stay readable as full raw values and do not make the stat icons shift horizontally while counts change
 - Verify activity indicators
+- Verify `Recent Activity` shows its counter badge and status dot even on short successful scans
+- Verify `Recent Activity` renders on short scans and does not stay empty after successful completion
 
 ### 3. Progress Tracking
 - Monitor scanning progress
@@ -70,6 +146,7 @@ This document outlines the manual testing procedures for the M3Unator userscript
 - Check UTF-8 encoding
 - Verify file path handling
 - Test playlist organization
+- Verify nested directory scans keep readable relative path labels in exported `#EXTINF` titles
 
 ## Security Tests
 
@@ -98,6 +175,7 @@ This document outlines the manual testing procedures for the M3Unator userscript
 
 ### 1. Large Scale Testing
 - Test with 1000+ files
+- Test with 2000+ files in a single directory and verify the browser stays responsive while the scan is active
 - Verify directory tree handling
 - Check memory usage patterns
 - Monitor CPU utilization
@@ -162,6 +240,9 @@ This document outlines the manual testing procedures for the M3Unator userscript
 - Test Apache compatibility
 - Verify Nginx support
 - Check LiteSpeed integration
+- Check Lighttpd integration
+- Check IIS integration
+- Check Caddy integration
 - Test custom server setups
 - Verify protocol handling
 

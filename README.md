@@ -15,7 +15,7 @@
   <p align="center">🎯 Create M3U/M3U8 playlists from web directory listings with ease!</p>
 </h3>
 
-<p align="center"><i>Browse through Apache, Nginx, or any other web server's directory listing and let M3Unator generate a playlist of all media files. It recognizes popular formats like MP4 and MP3, as well as specialized ones like MKV and FLAC. With its clean dark interface and real-time scanning status, creating playlists has never been simpler.</i></p>
+<p align="center"><i>Browse through Apache, Nginx, LiteSpeed, Lighttpd, IIS, Caddy, or any similar web server directory listing and let M3Unator generate a playlist of all media files. It recognizes popular formats like MP4 and MP3, as well as specialized ones like MKV and FLAC. With its clean dark interface and real-time scanning status, creating playlists has never been simpler.</i></p>
 
 <p align="center">
   <a href="#-installation"><img src="https://img.shields.io/badge/-Installation-2ea44f?style=for-the-badge" alt="Installation"></a>
@@ -40,6 +40,9 @@
 ### 🌐 Web Server Support
 - Improved Apache/Nginx directory listings support
 - Added LiteSpeed directory support
+- Added Lighttpd, IIS, and Caddy directory listing coverage
+- Improved startup detection for Apache and IIS title variants that omit `Index of` / `Directory Listing`
+- Hardened heuristic listing detection to ignore incidental page chrome and skip non-listing recursive fetches
 - Optimized link extraction and processing
 - Enhanced URL validation and handling
 
@@ -54,6 +57,7 @@
 - Real-time progress tracking with detailed stats
 - Colored log categories for better visibility
 - Activity indicator for real-time operation status
+- `.m3u8` exports now use UTF-8 with BOM and an HLS-friendly MIME type
 
 ## 🎯 Installation
 
@@ -98,7 +102,7 @@
 
 ## 📖 What are Open Directories?
 
-Open Directories are publicly accessible web server directories with directory listing enabled. These are web pages that display a list of files and folders, similar to how you view files on your computer. They are commonly found on Apache, Nginx, Lighttpd, LiteSpeed, and other web servers where directory indexing is enabled. These directories allow direct access to browse and download files through your web browser.
+Open Directories are publicly accessible web server directories with directory listing enabled. These are web pages that display a list of files and folders, similar to how you view files on your computer. They are commonly found on Apache, Nginx, Lighttpd, LiteSpeed, IIS, Caddy, and other web servers where directory indexing is enabled. These directories allow direct access to browse and download files through your web browser.
 
 Example directory structure:
 ```plaintext

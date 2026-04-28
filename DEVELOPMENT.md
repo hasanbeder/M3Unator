@@ -7,6 +7,7 @@
 * A modern web browser (Chrome, Firefox, Edge, Safari)
 * A text editor or IDE (VS Code recommended)
 * Git
+* Node.js 24.14.1 recommended for local build/validation scripts
 * Tampermonkey or Violentmonkey
 
 ### Setup Steps
@@ -17,11 +18,16 @@
    cd M3Unator
    ```
 
-2. Enable developer mode in your browser:
+2. Build the root userscript artifacts from the source runtime:
+   ```bash
+   node scripts/build_userscript.js
+   ```
+
+3. Enable developer mode in your browser:
    * Chrome/Edge: Extensions > Developer mode
    * Firefox: about:debugging > This Firefox > Load Temporary Add-on
 
-3. Set file permissions in your userscript manager:
+4. Set file permissions in your userscript manager:
    * File system access
    * GM_* APIs
    * Cross-origin requests
@@ -30,19 +36,64 @@
 
 ```
 M3Unator/
-├── .github/                    # GitHub configurations
+├── .claude/skills/             # Project-specific engineering skill suite
+├── fixtures/                   # Parser and scan regression fixtures
 ├── screenshots/                # Screenshots and UI examples
-├── tests/                     # Manual testing guide
+├── src/                        # Source-oriented contributor workspace
+│   └── runtime/
+│       ├── parts/              # Ordered runtime source slices
+│       ├── build-manifest.json # Assembly order for runtime parts
+│       └── M3Unator.user.js    # Generated runtime snapshot
+├── scripts/                    # Local validation, build, and browser smoke tooling
+├── tests/                      # Manual and logic regression material
 ├── wiki/                      # Documentation wiki
-├── M3Unator.user.js           # Main script file
-├── M3Unator.meta.js           # Metadata file
+├── M3Unator.user.js           # Generated installable userscript artifact
+├── M3Unator.meta.js           # Generated metadata artifact
 ├── README.md                  # Project documentation
 ├── DEVELOPMENT.md             # Development guide
 ├── CONTRIBUTING.md            # Contribution guide
 ├── CHANGELOG.md               # Version history
 ├── SECURITY.md                # Security policy
+├── package.json               # Contributor script entrypoints
 └── LICENSE                    # License file
 ```
+
+## 🔁 Build & Validation Workflow
+
+1. Edit the appropriate file under `src/runtime/parts/`
+2. Rebuild the public artifacts:
+   ```bash
+   node scripts/build_userscript.js
+   ```
+3. Run the local validation triplet:
+   ```bash
+   node scripts/validate_bootstrap.js .claude/skills
+   node scripts/version_checker.js .claude/skills
+   node scripts/check_skill_compliance.js --file M3Unator.user.js
+   ```
+4. Run the fixture-backed logic regression tests:
+   ```bash
+   npm run test:logic
+   ```
+5. Run the local browser smoke matrix before release-facing handoff:
+   ```bash
+   npm run test:e2e
+   ```
+
+The generated `src/runtime/M3Unator.user.js` snapshot and the root `M3Unator.user.js` / `M3Unator.meta.js` files should now be treated as build outputs that stay committed for GitHub raw installation.
+
+The browser smoke matrix uses a local fixture server with nested Apache-style and LiteSpeed-style listings. It verifies launcher mounting, recursive scan depth, pause/resume/cancel controls, recent-activity rendering, stats updates, and playlist download behavior in Chromium and Firefox.
+Keep the logic suite aligned with the smoke matrix whenever parser heuristics change, especially for root-scoped listing extraction and rejection of non-listing recursive fetches.
+
+Current runtime concern splits inside `src/runtime/parts/`:
+- `40-playlist-generator-core.js`
+- `41-playlist-generator-ui.js`
+- `41a-playlist-generator-ui-controls.js`
+- `41b-playlist-generator-ui-reset.js`
+- `42-playlist-generator-errors-network.js`
+- `43-playlist-generator-scanner.js`
+- `43a-playlist-generator-scanner-execution.js`
+- `44-playlist-generator-output.js`
 
 ## 🔧 Core System Architecture
 
@@ -63,6 +114,7 @@ M3Unator/
 ### 3. Web Server Integration
 - Apache/Nginx parser optimization
 - LiteSpeed directory support
+- Lighttpd/IIS/Caddy directory listing coverage
 - Protocol-specific optimizations
 - Header management
 - Connection pooling

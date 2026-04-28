@@ -16,61 +16,371 @@
 // @noframes     true
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
 
-    if (!document.title.includes('Index of') && !document.querySelector('div#table-list')) {
+    function normalizeListingText(value) {
+        return typeof value === 'string' ? value.trim().toLowerCase() : '';
+    }
+
+    function getSelectorText(doc, selector) {
+        if (!doc || typeof doc.querySelector !== 'function') {
+            return '';
+        }
+
+        const element = doc.querySelector(selector);
+        return element && typeof element.textContent === 'string' ? element.textContent : '';
+    }
+
+    function hasSelector(doc, selector) {
+        return Boolean(doc && typeof doc.querySelector === 'function' && doc.querySelector(selector));
+    }
+
+    function getAnchorElements(doc, selector = 'a[href]') {
+        if (!doc || typeof doc.querySelectorAll !== 'function') {
+            return [];
+        }
+
+        return Array.from(doc.querySelectorAll(selector));
+    }
+
+    function getDocumentText(doc = document) {
+        return normalizeListingText(
+            doc && doc.body && typeof doc.body.textContent === 'string' ? doc.body.textContent : ''
+        );
+    }
+
+    function getDirectoryListingTitleMarkers(doc = document) {
+        const candidates = [doc && doc.title, getSelectorText(doc, 'h1'), getSelectorText(doc, 'h2')];
+
+        return candidates.reduce(
+            (markers, value) => {
+                const normalizedValue = normalizeListingText(value);
+
+                if (normalizedValue.includes('index of')) {
+                    markers.hasIndexOf = true;
+                }
+
+                if (normalizedValue.includes('directory listing')) {
+                    markers.hasDirectoryListing = true;
+                }
+
+                return markers;
+            },
+            {
+                hasIndexOf: false,
+                hasDirectoryListing: false
+            }
+        );
+    }
+
+    function getAnchorHref(anchor) {
+        if (!anchor || typeof anchor.getAttribute !== 'function') {
+            return '';
+        }
+
+        return anchor.getAttribute('href') || '';
+    }
+
+    function getAnchorText(anchor) {
+        return normalizeListingText(anchor && typeof anchor.textContent === 'string' ? anchor.textContent : '');
+    }
+
+    function isSortableDirectoryQueryHref(href) {
+        return /^\?(?:C=[^#]+|sort=[^#]+|order=[^#]+)/i.test(href);
+    }
+
+    function isParentDirectoryAnchor(anchor) {
+        const href = getAnchorHref(anchor).trim();
+        const text = getAnchorText(anchor);
+
+        return (
+            href === '../' ||
+            text === '../' ||
+            text.includes('parent directory') ||
+            text.includes('[to parent directory]') ||
+            text.includes('[parentdir]')
+        );
+    }
+
+    function normalizeDirectoryCandidateHref(
+        href,
+        baseHref = window.location && window.location.href ? window.location.href : ''
+    ) {
+        const normalizedHref = typeof href === 'string' ? href.trim() : '';
+
+        return Boolean(normalizedHref) &&
+            normalizedHref !== '../' &&
+            !normalizedHref.startsWith('?') &&
+            !normalizedHref.startsWith('#') &&
+            !normalizedHref.startsWith('//') &&
+            !/^[a-z]+:/i.test(normalizedHref)
+            ? (() => {
+                  if (!normalizedHref.startsWith('/')) {
+                      return normalizedHref;
+                  }
+
+                  try {
+                      const baseUrl = new URL(baseHref);
+                      const candidateUrl = new URL(normalizedHref, baseUrl.href);
+                      const basePath = baseUrl.pathname.endsWith('/') ? baseUrl.pathname : `${baseUrl.pathname}/`;
+
+                      if (candidateUrl.origin !== baseUrl.origin || !candidateUrl.pathname.startsWith(basePath)) {
+                          return '';
+                      }
+
+                      return candidateUrl.pathname.slice(basePath.length);
+                  } catch (error) {
+                      return '';
+                  }
+              })()
+            : '';
+    }
+
+    function isRelativeDirectoryCandidateHref(
+        href,
+        baseHref = window.location && window.location.href ? window.location.href : ''
+    ) {
+        return Boolean(normalizeDirectoryCandidateHref(href, baseHref));
+    }
+
+    function getPreferredListingAnchorSelector(doc = document) {
+        if (hasSelector(doc, 'div#table-list')) {
+            return '#table-content a[href]';
+        }
+
+        if (hasSelector(doc, 'nav.breadcrumbs') && hasSelector(doc, 'table.listing')) {
+            return 'table.listing a[href]';
+        }
+
+        if (hasSelector(doc, 'table#listing')) {
+            return 'table#listing a[href]';
+        }
+
+        if (hasSelector(doc, 'table[summary="Directory Listing"]')) {
+            return 'table[summary="Directory Listing"] a[href]';
+        }
+
+        if (hasSelector(doc, 'pre')) {
+            return 'pre a[href]';
+        }
+
+        return 'a[href]';
+    }
+
+    function getDirectoryListingAnchors(doc = document) {
+        const anchors = getAnchorElements(doc, getPreferredListingAnchorSelector(doc));
+        return anchors.length > 0 ? anchors : getAnchorElements(doc, 'a[href]');
+    }
+
+    function getDirectoryListingSignalCounts(
+        doc = document,
+        baseHref = window.location && window.location.href ? window.location.href : ''
+    ) {
+        const counts = {
+            anchorCount: 0,
+            relativeCandidateCount: 0,
+            directoryCandidateCount: 0,
+            fileCandidateCount: 0,
+            parentLinkCount: 0,
+            sortableQueryCount: 0
+        };
+
+        const anchors = getDirectoryListingAnchors(doc);
+        counts.anchorCount = anchors.length;
+
+        anchors.forEach(anchor => {
+            const href = getAnchorHref(anchor).trim();
+
+            if (isParentDirectoryAnchor(anchor)) {
+                counts.parentLinkCount++;
+                return;
+            }
+
+            if (isSortableDirectoryQueryHref(href)) {
+                counts.sortableQueryCount++;
+                return;
+            }
+
+            const normalizedHref = normalizeDirectoryCandidateHref(href, baseHref);
+            if (!normalizedHref) {
+                return;
+            }
+
+            counts.relativeCandidateCount++;
+
+            if (normalizedHref.endsWith('/')) {
+                counts.directoryCandidateCount++;
+                return;
+            }
+
+            counts.fileCandidateCount++;
+        });
+
+        return counts;
+    }
+
+    function hasDirectoryListingLinkStructure(
+        doc = document,
+        baseHref = window.location && window.location.href ? window.location.href : ''
+    ) {
+        const signalCounts = getDirectoryListingSignalCounts(doc, baseHref);
+
+        return (
+            signalCounts.relativeCandidateCount >= 1 &&
+            (signalCounts.parentLinkCount > 0 ||
+                signalCounts.sortableQueryCount > 0 ||
+                signalCounts.directoryCandidateCount > 0)
+        );
+    }
+
+    function hasGenericDirectoryListingMarkers(doc = document) {
+        const documentText = getDocumentText(doc);
+
+        return (
+            documentText.includes('parent directory') ||
+            documentText.includes('[to parent directory]') ||
+            documentText.includes('[parentdir]')
+        );
+    }
+
+    function hasExplicitDirectoryListingSignals(titleMarkers, signalCounts, hasGenericMarkers) {
+        return (
+            titleMarkers.hasIndexOf ||
+            hasGenericMarkers ||
+            signalCounts.parentLinkCount > 0 ||
+            signalCounts.sortableQueryCount > 0
+        );
+    }
+
+    function getDirectoryListingSupport(
+        doc = document,
+        baseHref = window.location && window.location.href ? window.location.href : ''
+    ) {
+        if (!doc || typeof doc.querySelector !== 'function') {
+            return {
+                supported: false,
+                score: 0
+            };
+        }
+
+        const titleMarkers = getDirectoryListingTitleMarkers(doc);
+        const signalCounts = getDirectoryListingSignalCounts(doc, baseHref);
+        const hasGenericMarkers = hasGenericDirectoryListingMarkers(doc);
+        const hasLiteSpeedStructure = hasSelector(doc, 'div#table-list') && signalCounts.relativeCandidateCount >= 1;
+        const hasCaddyStructure =
+            hasSelector(doc, 'nav.breadcrumbs') &&
+            hasSelector(doc, 'table.listing') &&
+            signalCounts.relativeCandidateCount >= 1;
+        const hasStructuredTable =
+            (hasSelector(doc, 'table#listing') || hasSelector(doc, 'table[summary="Directory Listing"]')) &&
+            signalCounts.relativeCandidateCount >= 1;
+        const hasLinkStructure = hasDirectoryListingLinkStructure(doc, baseHref);
+        const hasExplicitSignals = hasExplicitDirectoryListingSignals(titleMarkers, signalCounts, hasGenericMarkers);
+        const hasPreListing = hasSelector(doc, 'pre') && signalCounts.relativeCandidateCount >= 1 && hasExplicitSignals;
+
+        let score = 0;
+
+        if (titleMarkers.hasIndexOf) {
+            score += 3;
+        }
+
+        if (titleMarkers.hasDirectoryListing) {
+            score += 2;
+        }
+
+        if (hasGenericMarkers) {
+            score += 2;
+        }
+
+        if (signalCounts.parentLinkCount > 0) {
+            score += 2;
+        }
+
+        if (signalCounts.sortableQueryCount > 0) {
+            score += 1;
+        }
+
+        if (signalCounts.relativeCandidateCount >= 2) {
+            score += 2;
+        } else if (signalCounts.relativeCandidateCount === 1) {
+            score += 1;
+        }
+
+        if (signalCounts.directoryCandidateCount > 0) {
+            score += 1;
+        }
+
+        if (signalCounts.fileCandidateCount > 0) {
+            score += 1;
+        }
+
+        if (hasPreListing) {
+            score += 2;
+        }
+
+        const isSmallBareIndex =
+            titleMarkers.hasIndexOf &&
+            signalCounts.relativeCandidateCount >= 1 &&
+            signalCounts.anchorCount === signalCounts.relativeCandidateCount &&
+            signalCounts.anchorCount <= 5;
+
+        return {
+            supported:
+                hasLiteSpeedStructure ||
+                hasCaddyStructure ||
+                hasStructuredTable ||
+                (signalCounts.relativeCandidateCount >= 1 &&
+                    ((hasExplicitSignals && score >= 6) ||
+                        (hasGenericMarkers && hasLinkStructure) ||
+                        isSmallBareIndex)),
+            score,
+            signalCounts,
+            titleMarkers
+        };
+    }
+
+    function isSupportedDirectoryListingPage(doc = document) {
+        return getDirectoryListingSupport(doc).supported;
+    }
+
+    if (!isSupportedDirectoryListingPage()) {
         console.log('This page is not an Index page, M3Unator disabled.');
         return;
     }
 
     function parseLiteSpeedDirectory() {
         const links = [];
-        const rows = document.querySelectorAll('#table-content tr');
-        
-        rows.forEach(row => {
-            const linkElement = row.querySelector('a');
-            if (linkElement && !linkElement.textContent.includes('Parent Directory')) {
-                const href = linkElement.getAttribute('href');
-                if (href) {
-                    links.push(new URL(href, window.location.href).href);
-                }
+        const anchors = getAnchorElements(document, '#table-content a[href]');
+
+        anchors.forEach(anchor => {
+            const href = normalizeDirectoryCandidateHref(getAnchorHref(anchor));
+            if (!isParentDirectoryAnchor(anchor) && href) {
+                links.push(new URL(href, window.location.href).href);
             }
         });
-        
+
         return links;
     }
 
     // Add LiteSpeed support to the existing getDirectoryLinks function
     function getDirectoryLinks() {
         const links = [];
-        
+
         // LiteSpeed directory listing
         if (document.querySelector('div#table-list')) {
-            const rows = document.querySelectorAll('#table-content tr');
-            rows.forEach(row => {
-                const linkElement = row.querySelector('a');
-                if (linkElement && !linkElement.textContent.includes('Parent Directory')) {
-                    const href = linkElement.getAttribute('href');
-                    if (href) {
-                        links.push(new URL(href, window.location.href).href);
-                    }
-                }
-            });
-            return links;
+            return parseLiteSpeedDirectory();
         }
-        
+
         // Apache/Nginx style directory listing
-        const anchors = document.querySelectorAll('a');
+        const anchors = getDirectoryListingAnchors(document);
         anchors.forEach(anchor => {
-            if (!anchor.textContent.includes('Parent Directory')) {
-                const href = anchor.getAttribute('href');
-                if (href && !href.startsWith('?') && !href.startsWith('/')) {
-                    links.push(new URL(href, window.location.href).href);
-                }
+            const href = normalizeDirectoryCandidateHref(getAnchorHref(anchor));
+            if (!isParentDirectoryAnchor(anchor) && href) {
+                links.push(new URL(href, window.location.href).href);
             }
         });
-        
+
         return links;
     }
 
@@ -155,27 +465,31 @@
         }
 
         .M3Unator-popup {
-            background: #11111b;
+            background: #1e1e2e;
             color: #cdd6f4;
             width: 100%;
             max-width: 480px;
+            max-height: calc(100vh - 2rem);
             border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            overflow-x: hidden;
+            overflow-y: auto;
             animation: slideUp 0.3s ease;
             position: absolute;
         }
 
         .M3Unator-header {
-            padding: 1.25rem 1.618rem;
-            background: #1e1e2e;
+            padding: 0.75rem;
+            background: none;
             color: #cdd6f4;
             display: flex;
             align-items: center;
             justify-content: space-between;
             cursor: move;
             user-select: none;
-            border-bottom: 1px solid #313244;
+            gap: 0.75rem;
+            border-bottom: 1px solid rgba(69, 71, 90, 0.6);
         }
 
         .M3Unator-title {
@@ -186,6 +500,7 @@
             font-size: 1.25rem;
             font-weight: 600;
             line-height: 1;
+            flex-shrink: 0;
         }
 
         .M3Unator-title svg {
@@ -200,10 +515,10 @@
             margin-top: 1px;
         }
 
-        .M3Unator-title span {
+        .M3Unator-brand-text {
             display: flex;
             align-items: center;
-            line-height: 24px;
+            white-space: nowrap;
             background: linear-gradient(90deg,
                 #f5c2e7,
                 #cba6f7,
@@ -216,6 +531,12 @@
             background-clip: text;
             -webkit-text-fill-color: transparent;
             animation: gradient 3s linear infinite;
+        }
+
+        .M3Unator-title .M3Unator-brand-text {
+            line-height: 24px;
+            position: relative;
+            padding: 0 0.25rem;
         }
 
         .M3Unator-close {
@@ -246,6 +567,8 @@
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .M3Unator-input-group {
@@ -259,13 +582,25 @@
             color: #bac2de;
         }
 
+        .M3Unator-visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
         .M3Unator-input {
             width: 100%;
-            height: 42px; /* Same height as Create Playlist button */
-            padding: 0 12px;
-            border: 1px solid #45475a;
-            border-radius: 8px;
-            background: #1e1e2e;
+            height: 42px;
+            padding: 8px 80px 8px 12px;
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            border-radius: 6px;
+            background: rgba(30, 30, 46, 0.6);
             color: #f5c2e7;
             font-size: 14px;
             transition: all 0.2s ease;
@@ -287,71 +622,59 @@
             position: relative;
             display: flex;
             align-items: center;
-            justify-content: center;
         }
 
-        .M3Unator-toggle-container input[type="checkbox"] {
-            display: none;
-        }
-
-        .M3Unator-toggle-container span {
-            width: 48px;
-            height: 48px;
-            background: #1e1e2e;
-            border: 2px solid #45475a;
-            border-radius: 12px;
+        .M3Unator-toggle-container label {
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
+        }
+
+        .M3Unator-toggle-container input[type="checkbox"] {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .M3Unator-toggle-container span {
+            width: 64px;
+            height: 64px;
+            background: #1e1e2e;
+            border: 2px solid #45475a;
+            border-radius: 16px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .M3Unator-toggle-container span:hover {
+            background: #313244;
+            border-color: #585b70;
+            transform: translateY(-2px);
+        }
+
+        .M3Unator-toggle-container span:active {
+            transform: translateY(0);
         }
 
         .M3Unator-toggle-container svg {
-            width: 24px;
-            height: 24px;
+            width: 32px;
+            height: 32px;
             opacity: 0.7;
             transition: all 0.3s ease;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
         }
 
         .M3Unator-toggle-container input[type="checkbox"]:checked + span {
             background: rgba(203, 166, 247, 0.1);
             border-color: #cba6f7;
             box-shadow: 0 0 20px rgba(203, 166, 247, 0.2);
-        }
-
-        .M3Unator-toggle-container input[type="checkbox"]:checked + span svg {
-            opacity: 1;
-            color: #cba6f7;
-            filter: drop-shadow(0 0 8px rgba(203, 166, 247, 0.4));
-        }
-
-        .M3Unator-toggle-container span:hover {
-            background: #313244;
             transform: translateY(-2px);
         }
 
-        .M3Unator-toggle-container span:active {
-            transform: translateY(1px);
-        }
-
         .M3Unator-toggle-container input[type="checkbox"]:checked + span:hover {
-            background: rgba(203, 166, 247, 0.2);
-        }
-
-        .M3Unator-toggle-container span:active {
-            transform: translateY(1px);
-        }
-
-        .M3Unator-toggle-container svg {
-            width: 24px;
-            height: 24px;
-            opacity: 0.8;
-            transition: all 0.2s ease;
+            background: rgba(203, 166, 247, 0.16);
         }
 
         .M3Unator-toggle-container input[type="checkbox"]:checked + span svg {
@@ -359,10 +682,14 @@
             color: #cba6f7;
         }
 
+        .M3Unator-toggle-container input[type="checkbox"]:focus-visible + span {
+            box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.28), 0 0 20px rgba(203, 166, 247, 0.12);
+        }
+
         .M3Unator-toggle-group {
+            margin: 0;
             display: flex;
             gap: 0.75rem;
-            margin: 0.75rem 0;
             justify-content: center;
             background: rgba(30, 30, 46, 0.4);
             padding: 0.75rem;
@@ -370,29 +697,10 @@
             backdrop-filter: blur(8px);
         }
 
-        [title]:hover::after {
-            content: attr(title);
-            position: absolute;
-            bottom: calc(100% + 5px);
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 0.5rem 0.75rem;
-            background: rgba(30, 30, 46, 0.95);
-            color: #cdd6f4;
-            font-size: 0.875rem;
-            white-space: nowrap;
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
-            border: 1px solid #313244;
-            text-align: center;
-            backdrop-filter: blur(8px);
-            pointer-events: none;
-        }
-
         .M3Unator-button {
             width: 100%;
             height: 42px;
+            min-height: 42px;
             padding: 0 16px;
             border: none;
             border-radius: 8px;
@@ -406,12 +714,12 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+            line-height: 1;
         }
 
         .M3Unator-button:hover {
-            background: #f5c2e7;
+            background: #f7cee9;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(245, 194, 231, 0.2);
         }
 
         .M3Unator-button:active {
@@ -428,49 +736,42 @@
             top: 1rem;
             right: 1.618rem;
             height: 48px;
-            padding: 0 1.25rem;
+            padding: 0 1rem;
             border-radius: 12px;
-            background: rgba(30, 30, 46, 0.95);
-            border: 2px solid #313244;
+            background: rgba(30, 30, 46, 0.85);
+            border: 1px solid rgba(245, 194, 231, 0.15);
             cursor: pointer;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.625rem;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 9998;
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(8px);
         }
 
         .M3Unator-launcher:hover {
-            background: rgba(30, 30, 46, 0.98);
-            border-color: #45475a;
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+            background: rgba(30, 30, 46, 0.95);
+            border-color: rgba(245, 194, 231, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .M3Unator-launcher.is-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-8px);
         }
 
         .M3Unator-launcher svg {
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             color: #f5c2e7;
-            filter: drop-shadow(0 0 8px rgba(245, 194, 231, 0.4));
         }
 
-        .M3Unator-launcher span {
+        .M3Unator-launcher .M3Unator-brand-text {
             font-weight: 600;
             font-size: 0.95rem;
-            background: linear-gradient(90deg,
-                #f5c2e7,
-                #cba6f7,
-                #89b4fa,
-                #a6e3a1,
-                #f5c2e7
-            );
-            background-size: 300% auto;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradient 3s linear infinite;
+            line-height: 1;
         }
 
         @keyframes gradient {
@@ -480,29 +781,52 @@
         }
 
         .M3Unator-dropdown {
-            position: relative;
-            width: 100%;
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 70px;
+            z-index: 9999;
+            display: none;
+        }
+
+        .M3Unator-dropdown.is-visible {
+            display: block;
         }
 
         .M3Unator-dropdown-button {
             width: 100%;
-            padding: 0.618rem;
-            background: #1e1e2e;
-            border: 1px solid #313244;
-            border-radius: 8px;
-            color: #cdd6f4;
-            font-size: 0.875rem;
-            text-align: left;
+            padding: 4px 8px;
+            background: rgba(30, 30, 46, 0.8);
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            border-radius: 6px;
+            color: #f5c2e7;
+            font-size: 14px;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 4px;
+            box-sizing: border-box;
+        }
+
+        .M3Unator-dropdown-button span {
+            min-width: 40px;
+            text-align: left;
         }
 
         .M3Unator-dropdown-button:hover {
-            border-color: #45475a;
-            background: rgba(30, 30, 46, 0.8);
+            background: rgba(30, 30, 46, 0.9);
+            border-color: rgba(69, 71, 90, 0.8);
+        }
+
+        .M3Unator-dropdown-button:disabled,
+        .M3Unator-dropdown-button:disabled:hover {
+            cursor: not-allowed;
+            opacity: 0.58;
+            background: rgba(30, 30, 46, 0.72);
+            border-color: rgba(69, 71, 90, 0.45);
         }
 
         .M3Unator-dropdown-button svg {
@@ -514,8 +838,7 @@
         }
 
         .M3Unator-dropdown.active .M3Unator-dropdown-button {
-            border-color: #cba6f7;
-            border-radius: 8px 8px 0 0;
+            border-color: rgba(69, 71, 90, 0.8);
         }
 
         .M3Unator-dropdown.active .M3Unator-dropdown-button svg {
@@ -525,16 +848,16 @@
         .M3Unator-dropdown-menu {
             position: absolute;
             top: 100%;
-            left: 0;
             right: 0;
-            background: #1e1e2e;
-            border: 1px solid #cba6f7;
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-            overflow: hidden;
-            z-index: 1000;
+            width: 100%;
+            margin-top: 4px;
+            background: rgba(30, 30, 46, 0.95);
+            border: 1px solid rgba(69, 71, 90, 0.6);
+            border-radius: 6px;
+            padding: 4px;
+            box-sizing: border-box;
+            z-index: 9999;
             display: none;
-            animation: dropdownSlide 0.2s ease;
             user-select: none;
         }
 
@@ -543,11 +866,15 @@
         }
 
         .M3Unator-dropdown-item {
-            padding: 0.618rem;
+            padding: 8px 12px;
             color: #cdd6f4;
             cursor: pointer;
+            border-radius: 4px;
             transition: all 0.2s ease;
             user-select: none;
+            text-align: center;
+            font-size: 14px;
+            font-family: monospace;
         }
 
         .M3Unator-dropdown-item:hover {
@@ -557,6 +884,12 @@
         .M3Unator-dropdown-item.selected {
             background: rgba(203, 166, 247, 0.1);
             color: #cba6f7;
+        }
+
+        .M3Unator-dropdown-divider {
+            height: 1px;
+            background: rgba(69, 71, 90, 0.6);
+            margin: 6px 0;
         }
 
         @keyframes slideUp {
@@ -617,30 +950,12 @@
             100% { background-position: 0% 50%; filter: hue-rotate(360deg); }
         }
 
-        .M3Unator-title span.text {
-            display: inline-block;
-            position: relative;
-            padding: 0 0.25rem;
-        }
-
-        .M3Unator-title.scanning span.text {
-            background: linear-gradient(90deg,
-                #f5c2e7,
-                #cba6f7,
-                #89b4fa,
-                #a6e3a1,
-                #f5c2e7
-            );
-            background-size: 300% auto;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradient 3s linear infinite;
+        .M3Unator-title.scanning .M3Unator-brand-text {
             font-weight: 700;
             letter-spacing: 0.5px;
         }
 
-        .M3Unator-title.scanning span.text::after {
+        .M3Unator-title.scanning .M3Unator-brand-text::after {
             content: '';
             position: absolute;
             bottom: -2px;
@@ -889,20 +1204,23 @@
 
         .M3Unator-input-row {
             display: flex;
-            gap: 0.75rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .M3Unator-input-row .M3Unator-input-group {
+            width: 100%;
+            position: relative;
+            max-width: 100%;
+            overflow: visible;
             margin-bottom: 0;
         }
 
-        .M3Unator-input-row .M3Unator-input-group:first-child {
-            flex: 2;
+        .M3Unator-input-row .M3Unator-input-group {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+            margin-bottom: 0;
         }
 
-        .M3Unator-input-row .M3Unator-input-group:last-child {
-            flex: 1;
+        .M3Unator-format-group {
+            min-width: 0;
+            max-width: none;
         }
 
         .M3Unator-social {
@@ -911,7 +1229,8 @@
             margin-right: 8px;
         }
 
-        .M3Unator-social a {
+        .M3Unator-social a,
+        .M3Unator-social button {
             width: 32px;
             height: 32px;
             border-radius: 8px;
@@ -919,10 +1238,15 @@
             place-items: center;
             color: #cdd6f4;
             background: rgba(205, 214, 244, 0.1);
+            border: none;
+            padding: 0;
+            text-decoration: none;
+            cursor: pointer;
             transition: all 0.2s ease;
         }
 
-        .M3Unator-social a:hover {
+        .M3Unator-social a:hover,
+        .M3Unator-social button:hover {
             background: rgba(205, 214, 244, 0.2);
             transform: rotate(360deg);
         }
@@ -930,6 +1254,41 @@
         .M3Unator-social svg {
             width: 18px;
             height: 18px;
+        }
+
+        .M3Unator-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            flex-shrink: 0;
+        }
+
+        .M3Unator-header-link {
+            height: 32px;
+            padding: 0 0.75rem;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #bac2de;
+            background: rgba(148, 163, 184, 0.08);
+            border: 1px solid rgba(69, 71, 90, 0.7);
+            text-decoration: none;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .M3Unator-header-link:hover {
+            color: #f5f7ff;
+            background: rgba(137, 180, 250, 0.1);
+            border-color: rgba(137, 180, 250, 0.28);
+        }
+
+        .M3Unator-header-link.info-link {
+            border: 1px solid rgba(69, 71, 90, 0.7);
+            cursor: pointer;
+            font-family: inherit;
         }
 
         .M3Unator-advanced-settings {
@@ -1093,7 +1452,7 @@
         }
 
         .M3Unator-stats-bar {
-            margin: 0.75rem 0;
+            margin: 0;
             padding: 0.5rem;
             background: rgba(30, 30, 46, 0.5);
             border: 1px solid #313244;
@@ -1123,20 +1482,36 @@
             min-width: 40px;
             justify-content: flex-start;
             padding: 0 0.25rem;
-            position: relative;
-        }
-
-        .M3Unator-stat span {
-            min-width: 16px;
-            text-align: right;
-            font-variant-numeric: tabular-nums;
-            font-size: 0.7rem;
-            font-weight: 500;
+            line-height: 1;
         }
 
         .M3Unator-stat svg {
             opacity: 0.8;
+            width: 14px;
+            height: 14px;
             flex-shrink: 0;
+        }
+
+        .M3Unator-stat-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            flex: 0 0 14px;
+        }
+
+        .M3Unator-stat-value {
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            font-size: 0.7rem;
+            font-weight: 500;
+            min-width: 16px;
+            display: block;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .M3Unator-stat-icon svg {
             width: 14px;
             height: 14px;
         }
@@ -1236,9 +1611,9 @@
 
         .M3Unator-log-toggle {
             width: 100%;
-            padding: 0.5rem 0.75rem;
-            background: rgba(203, 166, 247, 0.05);
-            border: none;
+            padding: 0.625rem 0.75rem;
+            background: rgba(17, 17, 27, 0.55);
+            border: 1px solid rgba(69, 71, 90, 0.6);
             color: #cdd6f4;
             display: flex;
             align-items: center;
@@ -1252,7 +1627,8 @@
         }
 
         .M3Unator-log-toggle:hover {
-            background: rgba(203, 166, 247, 0.1);
+            background: rgba(24, 24, 37, 0.78);
+            border-color: rgba(137, 180, 250, 0.22);
         }
 
         .M3Unator-activity-indicator {
@@ -1260,7 +1636,7 @@
             height: 14px;
             border-radius: 50%;
             background: #45475a;  /* Darker gray */
-            margin-left: auto;
+            margin-left: 0;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
@@ -1533,59 +1909,6 @@
             100% { transform: scale(1); }
         }
 
-        .M3Unator-toggle-group {
-            display: flex;
-            gap: 1.25rem;
-            margin: 1.5rem 0;
-            justify-content: center;
-            background: rgba(30, 30, 46, 0.4);
-            padding: 1.25rem;
-            border-radius: 16px;
-            backdrop-filter: blur(8px);
-        }
-
-        .M3Unator-toggle-container {
-            position: relative;
-        }
-
-        .M3Unator-toggle-container span {
-            width: 64px;
-            height: 64px;
-            background: #1e1e2e;
-            border: 2px solid #45475a;
-            border-radius: 16px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .M3Unator-toggle-container input[type="checkbox"]:checked + span {
-            background: rgba(203, 166, 247, 0.1);
-            border-color: #cba6f7;
-            box-shadow: 0 0 20px rgba(203, 166, 247, 0.2);
-            transform: translateY(-2px);
-        }
-
-        .M3Unator-toggle-container span:hover {
-            background: #313244;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-        }
-
-        .M3Unator-toggle-container svg {
-            width: 32px;
-            height: 32px;
-            opacity: 0.7;
-            transition: all 0.3s ease;
-        }
-
-        .M3Unator-toggle-container input[type="checkbox"]:checked + span svg {
-            opacity: 1;
-            color: #cba6f7;
-            filter: drop-shadow(0 0 8px rgba(203, 166, 247, 0.4));
-        }
-
         .M3Unator-progress {
             background: rgba(30, 30, 46, 0.6);
             border-radius: 12px;
@@ -1792,19 +2115,23 @@
         }
 
         .M3Unator-log-toggle:hover .M3Unator-activity-indicator {
-            background: #6c7086;
-            animation: none;
+            transform: scale(1.05);
         }
 
         .M3Unator-log-toggle.active .M3Unator-activity-indicator {
-            background: #6c7086;
-            animation: none;
+            transform: scale(1.05);
         }
 
         .M3Unator-log-toggle .toggle-text {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+        }
+
+        .M3Unator-log-status {
+            display: flex;
+            align-items: center;
+            gap: 0;
         }
 
         .M3Unator-log {
@@ -1883,9 +2210,16 @@
         }
 
         .M3Unator-log-counter {
-            padding: 0.125rem 0.375rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+            height: 22px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: rgba(203, 166, 247, 0.14);
+            color: #cba6f7;
             font-size: 0.75rem;
-            border-radius: 4px;
         }
 
         .M3Unator-log-time {
@@ -1893,42 +2227,43 @@
             opacity: 0.7;
             margin-right: 0.5rem;
         }
-    `);
 
-    GM_addStyle(`
-        .M3Unator-popup {
-            position: fixed;
-            background: #11111b;
-            color: #cdd6f4;
-            width: 100%;
-            max-width: 480px;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            overflow: hidden;
-            animation: slideUp 0.3s ease;
-            z-index: 9999;
+        .M3Unator-activity-indicator {
+            display: none !important;
         }
 
-        .M3Unator-header {
-            padding: 1rem 1.25rem;
-            background: #1e1e2e;
-            color: #cdd6f4;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: move;
-            user-select: none;
-            border-bottom: 1px solid #313244;
-        }
+        @media (max-width: 560px) {
+            .M3Unator-container {
+                padding: 0.75rem;
+            }
 
-        .M3Unator-container {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(8px);
-            display: none;
-            place-items: center;
-            z-index: 9999;
+            .M3Unator-popup {
+                width: 100%;
+                max-width: none;
+            }
+
+            .M3Unator-header {
+                align-items: center;
+            }
+
+            .M3Unator-input-row {
+                margin-bottom: 0;
+            }
+
+            .M3Unator-stats {
+                justify-content: center;
+            }
+
+            .M3Unator-toggle-container span {
+                width: 48px;
+                height: 48px;
+                border-radius: 12px;
+            }
+
+            .M3Unator-toggle-container svg {
+                width: 24px;
+                height: 24px;
+            }
         }
     `);
 
@@ -1949,11 +2284,14 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background: #1e1e2e;
-            border: 1px solid #45475a;
+            border: 1px solid rgba(69, 71, 90, 0.6);
             border-radius: 12px;
             width: 90%;
             max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
             color: #cdd6f4;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
         .info-modal-header {
@@ -1971,8 +2309,8 @@
         }
 
         .info-modal-body {
-            padding: 1.5rem;
-            line-height: 1.6;
+            padding: 2rem;
+            line-height: 1.55;
         }
 
         .info-modal-body p {
@@ -2003,6 +2341,12 @@
         }
 
         .info-close {
+            background: transparent;
+            border: none;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
             color: #6c7086;
             transition: color 0.2s ease;
@@ -2010,374 +2354,6 @@
 
         .info-close:hover {
             color: #f5c2e7;
-        }
-    `);
-
-    GM_addStyle(`
-        .m3unator-input-group {
-            position: relative;
-            width: 100%;
-        }
-
-        .m3unator-input {
-            width: 100%;
-            padding-right: 80px !important;
-            transition: all 0.2s ease;
-        }
-
-        .m3unator-dropdown {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: none;
-            z-index: 1;
-            width: 70px;
-        }
-
-        .m3unator-dropdown.active {
-            display: block;
-        }
-
-        .m3unator-dropdown-button {
-            width: 100%;
-            padding: 4px 8px;
-            border-radius: 6px;
-            background: rgba(30, 30, 46, 0.6);
-            border: 1px solid rgba(69, 71, 90, 0.6);
-            color: #f5c2e7;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 4px;
-            transition: all 0.2s ease;
-        }
-
-        .m3unator-dropdown-button:hover {
-            background: rgba(30, 30, 46, 0.8);
-            border-color: rgba(69, 71, 90, 0.8);
-        }
-
-        .m3unator-dropdown-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            width: 100%;
-            margin-top: 4px;
-            background: rgba(30, 30, 46, 0.95);
-            border: 1px solid rgba(69, 71, 90, 0.6);
-            border-radius: 6px;
-            padding: 4px;
-            display: none;
-        }
-
-        .m3unator-dropdown.active .m3unator-dropdown-menu {
-            display: block;
-        }
-
-        .m3unator-dropdown-item {
-            padding: 0.618rem;
-            color: #cdd6f4;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            user-select: none;
-        }
-
-        .m3unator-dropdown-item:hover {
-            background: rgba(203, 166, 247, 0.1);
-        }
-
-        .m3unator-dropdown-item.selected {
-            background: rgba(203, 166, 247, 0.1);
-            color: #cba6f7;
-        }
-    `);
-
-    GM_addStyle(`
-        .M3Unator-container {
-            max-width: 400px;
-            width: 100%;
-            background: none;
-            backdrop-filter: none;
-        }
-
-        .M3Unator-popup {
-            background: #1e1e2e;
-            border-radius: 12px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(69, 71, 90, 0.6);
-        }
-
-        .M3Unator-content {
-            padding: 0.75rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            max-width: 100%;
-            overflow: hidden;
-            background: none;
-        }
-
-        .M3Unator-header {
-            padding: 0.75rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: none;
-            border-bottom: 1px solid rgba(69, 71, 90, 0.6);
-        }
-
-        .M3Unator-input {
-            width: 100%;
-            min-width: 0;
-            padding: 8px 80px 8px 12px;
-            box-sizing: border-box;
-            transition: all 0.2s ease;
-            background: #1e1e2e;
-            border: 1px solid rgba(69, 71, 90, 0.6);
-            border-radius: 6px;
-            color: #f5c2e7;
-            font-size: 14px;
-        }
-
-        .M3Unator-dropdown-button {
-            width: 100%;
-            padding: 4px 8px;
-            border-radius: 6px;
-            background: #1e1e2e;
-            border: 1px solid rgba(69, 71, 90, 0.6);
-            color: #f5c2e7;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 4px;
-            transition: all 0.2s ease;
-            box-sizing: border-box;
-            font-size: 14px;
-            font-family: monospace;
-        }
-
-        .M3Unator-dropdown-button span {
-            min-width: 40px;
-            text-align: left;
-        }
-
-        .M3Unator-dropdown-button svg {
-            width: 16px;
-            height: 16px;
-            min-width: 16px;
-            min-height: 16px;
-            margin-left: auto;
-        }
-
-        .M3Unator-dropdown-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            width: 100%;
-            margin-top: 4px;
-            background: #1e1e2e;
-            border: 1px solid rgba(69, 71, 90, 0.6);
-            border-radius: 6px;
-            padding: 4px;
-            display: none;
-            box-sizing: border-box;
-            z-index: 9999;
-        }
-    `);
-
-    GM_addStyle(`
-        .M3Unator-content {
-            padding: 0.75rem;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .M3Unator-toggle-group {
-            margin: 0;
-            display: flex;
-            gap: 0.75rem;
-            justify-content: center;
-            background: rgba(30, 30, 46, 0.4);
-            padding: 0.75rem;
-            border-radius: 12px;
-        }
-
-        .M3Unator-button {
-            margin: 0;
-        }
-
-        .M3Unator-log-container {
-            margin: 0;
-        }
-
-        .M3Unator-stats-bar {
-            margin: 0;
-        }
-    `);
-
-    GM_addStyle(`
-        /* Dropdown Styles */
-        .M3Unator-dropdown {
-            position: relative;
-            display: none;
-        }
-
-        .M3Unator-dropdown-button {
-            width: 100%;
-            padding: 4px 8px;
-            border-radius: 6px;
-            background: #1e1e2e;
-            border: 1px solid rgba(69, 71, 90, 0.6);
-            color: #f5c2e7;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 4px;
-            transition: all 0.2s ease;
-            box-sizing: border-box;
-            font-size: 14px;
-            font-family: monospace;
-        }
-
-        .M3Unator-dropdown-button span {
-            min-width: 40px;
-            text-align: left;
-        }
-
-        .M3Unator-dropdown-button svg {
-            width: 16px;
-            height: 16px;
-            min-width: 16px;
-            min-height: 16px;
-            margin-left: auto;
-            transition: transform 0.2s ease;
-        }
-
-        .M3Unator-dropdown.active .M3Unator-dropdown-button svg {
-            transform: rotate(180deg);
-        }
-
-        .M3Unator-dropdown-menu {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            margin-top: 4px;
-            background: #1e1e2e;
-            border: 1px solid rgba(69, 71, 90, 0.6);
-            border-radius: 6px;
-            overflow: hidden;
-            z-index: 1000;
-            display: none;
-        }
-
-        .M3Unator-dropdown.active .M3Unator-dropdown-menu {
-            display: block;
-        }
-
-        .M3Unator-dropdown-item {
-            padding: 6px 12px;
-            color: #f5c2e7;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-family: monospace;
-        }
-
-        .M3Unator-dropdown-item:hover {
-            background: rgba(69, 71, 90, 0.3);
-        }
-
-        .M3Unator-dropdown-item:not(:last-child) {
-            border-bottom: 1px solid rgba(69, 71, 90, 0.3);
-        }
-
-        /* Input Styles */
-        .M3Unator-input {
-            width: 100%;
-            height: 42px;
-            padding: 0 12px;
-            border: 1px solid #45475a;
-            border-radius: 8px;
-            background: #1e1e2e;
-            color: #f5c2e7;
-            font-size: 14px;
-            transition: all 0.2s ease;
-            box-sizing: border-box;
-        }
-
-        .M3Unator-input:focus {
-            outline: none;
-            border-color: #f5c2e7;
-            box-shadow: 0 0 0 2px rgba(245, 194, 231, 0.1);
-        }
-
-        /* Button Styles */
-        .M3Unator-button {
-            height: 42px;
-            padding: 0 16px;
-            border: none;
-            border-radius: 8px;
-            background: #f5c2e7;
-            color: #1e1e2e;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        /* Toggle Container Styles */
-        .M3Unator-toggle-container {
-            position: relative;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.2s ease;
-        }
-
-        /* Control Button Styles */
-        .M3Unator-control-btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            min-width: 160px;
-            background: rgba(30, 30, 46, 0.6);
-            backdrop-filter: blur(8px);
-        }
-
-        .M3Unator-control-btn.pause {
-            border-color: #fab387;
-            color: #fab387;
-        }
-
-        .M3Unator-control-btn.resume {
-            border-color: #94e2d5;
-            color: #94e2d5;
-        }
-
-        .M3Unator-control-btn.cancel {
-            border-color: #f38ba8;
-            color: #f38ba8;
-        }
-
-        /* Stats Styles */
-        .M3Unator-stat {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.382rem;
-            font-size: 0.875rem;
-            cursor: help;
-            min-width: 52px;
-            padding: 0 0.382rem;
         }
     `);
 
@@ -2412,10 +2388,11 @@
         }
 
         add(message, type = '') {
+            const sequence = this.stats.totalLogs + 1;
             const timestamp = new Date().toLocaleTimeString();
-            this.logs.push({ message, type, timestamp });
-            this.stats.totalLogs++;
-            
+            this.logs.push({ message, type, timestamp, sequence });
+            this.stats.totalLogs = sequence;
+
             if (this.logs.length > this.maxSize) {
                 this.logs.shift();
                 this.stats.skippedLogs++;
@@ -2438,7 +2415,46 @@
 
     class PlaylistGenerator {
         constructor() {
-            this.initialStats = {
+            this.initialStats = this.createInitialStats();
+            this.videoFormats = this.createVideoFormats();
+            this.audioFormats = this.createAudioFormats();
+            this.extensionMap = this.buildExtensionMap(this.videoFormats, this.audioFormats);
+            this.scriptVersion = this.resolveScriptVersion();
+            this.domElements = {};
+            this.state = this.createInitialState(this.initialStats);
+            this.sortOptions = { numeric: true, sensitivity: 'base' };
+            this.domParser = this.createDomParser();
+            this.initializeRuntimeCollections();
+            this.icons = this.createIcons();
+            this.templates = this.createTemplates();
+            this.baseStyles = this.createBaseStyles();
+            GM_addStyle(this.baseStyles);
+            this.updateActivityIndicator = this.createActivityIndicatorUpdater();
+            this.logCache = new LogCache(100);
+        }
+
+        resolveScriptVersion() {
+            if (typeof GM_info !== 'undefined' && GM_info && GM_info.script && GM_info.script.version) {
+                return String(GM_info.script.version);
+            }
+
+            return '';
+        }
+
+        getAboutDialogTitle() {
+            return this.scriptVersion ? `About M3Unator v${this.scriptVersion}` : 'About M3Unator';
+        }
+
+        getBrandTextMarkup() {
+            return '<span class="M3Unator-brand-text">M3Unator</span>';
+        }
+
+        createDomParser() {
+            return typeof DOMParser === 'function' ? new DOMParser() : null;
+        }
+
+        createInitialStats() {
+            return {
                 directories: {
                     total: 0,
                     depth: 0
@@ -2459,39 +2475,102 @@
                 },
                 totalFiles: 0
             };
+        }
 
-            this.videoFormats = [
-                '.mp4', '.mkv', '.avi', '.webm', '.mov', '.flv', '.wmv', 
-                '.m4v', '.mpg', '.mpeg', '.3gp', '.vob', '.ts', '.mts',
-                '.m2ts', '.divx', '.xvid', '.asf', '.ogv', '.rm', '.rmvb',
-                '.wtv', '.qt', '.hevc', '.f4v', '.swf', '.vro', '.ogx',
-                '.drc', '.gifv', '.mxf', '.roq', '.nsv'
+        createVideoFormats() {
+            return [
+                '.mp4',
+                '.mkv',
+                '.avi',
+                '.webm',
+                '.mov',
+                '.flv',
+                '.wmv',
+                '.m4v',
+                '.mpg',
+                '.mpeg',
+                '.3gp',
+                '.vob',
+                '.ts',
+                '.mts',
+                '.m2ts',
+                '.divx',
+                '.xvid',
+                '.asf',
+                '.ogv',
+                '.rm',
+                '.rmvb',
+                '.wtv',
+                '.qt',
+                '.hevc',
+                '.f4v',
+                '.swf',
+                '.vro',
+                '.ogx',
+                '.drc',
+                '.gifv',
+                '.mxf',
+                '.roq',
+                '.nsv'
             ];
+        }
 
-            this.audioFormats = [
-                '.mp3', '.m4a', '.wav', '.flac', '.aac', '.ogg', '.wma',
-                '.opus', '.aiff', '.ape', '.mka', '.ac3', '.dts', '.m4b',
-                '.m4p', '.m4r', '.mid', '.midi', '.mp2', '.mpa', '.mpc',
-                '.ra', '.tta', '.voc', '.vox', '.amr', '.awb', '.dsf',
-                '.dff', '.alac', '.wv', '.oga', '.sln', '.aif', '.pcm'
+        createAudioFormats() {
+            return [
+                '.mp3',
+                '.m4a',
+                '.wav',
+                '.flac',
+                '.aac',
+                '.ogg',
+                '.wma',
+                '.opus',
+                '.aiff',
+                '.ape',
+                '.mka',
+                '.ac3',
+                '.dts',
+                '.m4b',
+                '.m4p',
+                '.m4r',
+                '.mid',
+                '.midi',
+                '.mp2',
+                '.mpa',
+                '.mpc',
+                '.ra',
+                '.tta',
+                '.voc',
+                '.vox',
+                '.amr',
+                '.awb',
+                '.dsf',
+                '.dff',
+                '.alac',
+                '.wv',
+                '.oga',
+                '.sln',
+                '.aif',
+                '.pcm'
             ];
+        }
 
-            // Create Map for file extensions
-            this.extensionMap = new Map();
+        buildExtensionMap(videoFormats, audioFormats) {
+            const extensionMap = new Map();
 
-            // Add video extensions to Map
-            this.videoFormats.forEach(ext => {
-                this.extensionMap.set(ext.slice(1), 'video'); // .mp4 -> mp4
+            videoFormats.forEach(ext => {
+                extensionMap.set(ext.slice(1), 'video');
             });
 
-            // Add audio extensions to Map
-            this.audioFormats.forEach(ext => {
-                this.extensionMap.set(ext.slice(1), 'audio'); // .mp3 -> mp3
+            audioFormats.forEach(ext => {
+                extensionMap.set(ext.slice(1), 'audio');
             });
 
-            this.domElements = {};
+            return extensionMap;
+        }
 
-            this.state = {
+        createInitialState(initialStats) {
+            return {
                 isGenerating: false,
                 isPaused: false,
                 selectedFormat: 'm3u',
@@ -2502,17 +2581,20 @@
                 retryCount: 2,
                 maxDepth: 0,
                 maxSeenUrls: 5000,
-                stats: { ...this.initialStats }
+                stats: { ...initialStats }
             };
+        }
 
-            this.sortOptions = { numeric: true, sensitivity: 'base' };
-
+        initializeRuntimeCollections() {
             this.entries = [];
             this.seenUrls = new Set();
+            this.seenUrlOrder = [];
             this.toastQueue = [];
             this.isProcessingToast = false;
+        }
 
-            this.icons = {
+        createIcons() {
+            return {
                 video: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polygon points="23 7 16 12 23 17 23 7"/>
                     <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
@@ -2587,31 +2669,35 @@
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 </svg>`
             };
+        }
 
-            this.templates = {
+        createTemplates() {
+            return {
                 toggleButton: (id, title, icon, checked = false) => `
                     <div class="M3Unator-toggle-container">
-                        <label>
+                        <label title="${title}" aria-label="${title}">
                             <input type="checkbox" id="${id}" ${checked ? 'checked' : ''}>
-                            <span title="${title}">${icon}</span>
+                            <span aria-hidden="true">${icon}</span>
                         </label>
                     </div>
                 `,
                 controlButton: (type, icon, text) => `
-                    <button class="M3Unator-control-btn ${type}">
+                    <button type="button" class="M3Unator-control-btn ${type}">
                         ${icon}
                         <span>${text}</span>
                     </button>
                 `,
                 statsItem: (icon, id, title, className = '') => `
-                    <span class="M3Unator-stat ${className}" title="${title}">
-                        ${icon}
-                        <span id="${id}">0</span>
+                    <span class="M3Unator-stat ${className}" data-stat-label="${title}" title="${title}: 0" aria-label="${title}: 0">
+                        <span class="M3Unator-stat-icon" aria-hidden="true">${icon}</span>
+                        <span id="${id}" class="M3Unator-stat-value" data-raw-value="0">0</span>
                     </span>
                 `
             };
+        }
 
-            this.baseStyles = `
+        createBaseStyles() {
+            return `
                 .M3Unator-btn-base {
                     border: none;
                     border-radius: 8px;
@@ -2662,17 +2748,15 @@
                     transition: all 0.2s ease;
                 }
             `;
+        }
 
-            GM_addStyle(this.baseStyles);
-
-            this.updateActivityIndicator = (status) => {
+        createActivityIndicatorUpdater() {
+            return status => {
                 const indicator = this.domElements.activityIndicator;
                 if (!indicator) return;
-                
-                // Remove all classes first
+
                 indicator.classList.remove('active', 'paused', 'cancelled', 'completed');
-                
-                // Status check
+
                 if (this.state.isGenerating) {
                     if (this.state.isPaused) {
                         indicator.classList.add('paused');
@@ -2685,32 +2769,16 @@
                     indicator.classList.add('completed');
                 }
             };
-
-            this.logCache = new LogCache(100);
         }
 
         createComponent(type, props) {
             switch (type) {
                 case 'toggle':
-                    return this.templates.toggleButton(
-                        props.id,
-                        props.title,
-                        props.icon,
-                        props.checked
-                    );
+                    return this.templates.toggleButton(props.id, props.title, props.icon, props.checked);
                 case 'control':
-                    return this.templates.controlButton(
-                        props.type,
-                        props.icon,
-                        props.text
-                    );
+                    return this.templates.controlButton(props.type, props.icon, props.text);
                 case 'stats':
-                    return `
-                        <span class="M3Unator-stat ${props.class}" title="${props.title}">
-                            ${props.icon}
-                            <span id="${props.id}">0</span>
-                        </span>
-                    `;
+                    return this.templates.statsItem(props.icon, props.id, props.title, props.class);
                 default:
                     return '';
             }
@@ -2720,130 +2788,57 @@
             const container = document.createElement('div');
             container.className = 'M3Unator-container';
 
-            const toggleButtons = [
-                {
-                    id: 'includeVideo',
-                    title: 'Video (.mp4, .mkv)',
-                    icon: this.icons.video,
-                    checked: true
-                },
-                {
-                    id: 'includeAudio',
-                    title: 'Audio (.mp3, .m4a)',
-                    icon: this.icons.audio,
-                    checked: true
-                },
-                {
-                    id: 'recursiveSearch',
-                    title: 'Scan Subdirectories',
-                    icon: this.icons.folder,
-                    checked: true
-                }
-            ].map(props => this.createComponent('toggle', props)).join('');
-
-            const controlButtons = [
-                {
-                    type: 'pause',
-                    icon: this.icons.pause,
-                    text: 'Pause'
-                },
-                {
-                    type: 'resume',
-                    icon: this.icons.resume,
-                    text: 'Resume'
-                },
-                {
-                    type: 'cancel',
-                    icon: this.icons.cancel,
-                    text: 'Cancel'
-                }
-            ].map(props => this.createComponent('control', props)).join('');
-
-            const statsItems = [
-                {
-                    icon: this.icons.file,
-                    id: 'totalFiles',
-                    title: 'Total Files',
-                    class: ''
-                },
-                {
-                    icon: this.icons.video,
-                    id: 'videoFiles',
-                    title: 'Video (.mp4, .mkv)',
-                    class: 'video'
-                },
-                {
-                    icon: this.icons.audio,
-                    id: 'audioFiles',
-                    title: 'Audio (.mp3, .m4a)',
-                    class: 'audio'
-                },
-                {
-                    icon: this.icons.folder,
-                    id: 'directories',
-                    title: 'Subdirectories',
-                    class: 'dir'
-                },
-                {
-                    icon: this.icons.layers,
-                    id: 'depthLevel',
-                    title: 'Depth Level',
-                    class: 'depth'
-                },
-                {
-                    icon: this.icons.error,
-                    id: 'errors',
-                    title: 'Error',
-                    class: 'error'
-                }
-            ].map(props => this.createComponent('stats', props)).join('');
+            const toggleButtons = this.buildToggleButtonsMarkup();
+            const controlButtons = this.buildControlButtonsMarkup();
+            const statsItems = this.buildStatsItemsMarkup();
 
             container.innerHTML = `
-                <div class="M3Unator-popup">
-                    <div class="M3Unator-header">
+                    <div class="M3Unator-popup">
+                        <div class="M3Unator-header">
                         <h3 class="M3Unator-title">
                             ${this.icons.video}
-                            <span>M3Unator</span>
+                            ${this.getBrandTextMarkup()}
                         </h3>
-                        <div style="display: flex; align-items: center;">
+                        <div class="M3Unator-header-actions">
                             <div class="M3Unator-social">
-                                <a class="info-link">
+                                <button type="button" class="info-link" aria-label="About M3Unator">
                                     ${this.icons.info}
-                                </a>
-                                <a href="https://github.com/hasanbeder/M3Unator" target="_blank" rel="noopener noreferrer" class="github-icon">
+                                </button>
+                                <a href="https://github.com/hasanbeder/M3Unator" target="_blank" rel="noopener noreferrer" class="github-icon" aria-label="GitHub">
                                     ${this.icons.github}
                                 </a>
-                                <a href="https://x.com/hasanbeder" target="_blank" rel="noopener noreferrer">
+                                <a href="https://x.com/hasanbeder" target="_blank" rel="noopener noreferrer" aria-label="X">
                                     ${this.icons.twitter}
                                 </a>
                             </div>
-                            <button class="M3Unator-close">${this.icons.close}</button>
+                            <button type="button" class="M3Unator-close" aria-label="Close M3Unator">${this.icons.close}</button>
                         </div>
                     </div>
                     <div class="info-modal">
                         <div class="info-modal-content">
                             <div class="info-modal-header">
-                                <h3>About M3Unator</h3>
-                                <span class="info-close">${this.icons.close}</span>
+                                <h3>${this.getAboutDialogTitle()}</h3>
+                                <button type="button" class="info-close" aria-label="Close About">${this.icons.close}</button>
                             </div>
                             <div class="info-modal-body">
-                                <p><strong>M3Unator v1.0.2</strong> - The Ultimate Web Directory Playlist Creator</p>
-                                <p>Create M3U/M3U8 playlists effortlessly from any web directory. Experience ultrafast scanning and intelligent media detection.</p>
-                                <h4>Key Features:</h4>
+                                <p><strong>🎬 Web Directory Playlist Creator</strong></p>
+                                <p>📂 Scan supported directory listings for video and audio files, then export clean <code>.m3u</code> or <code>.m3u8</code> playlists.</p>
+                                <h4>Features</h4>
                                 <ul>
-                                    <li>⚡ Ultrafast directory scanning with parallel processing</li>
-                                    <li>🎥 Comprehensive media support (MP4, MKV, MP3, FLAC, etc.)</li>
-                                    <li>🔍 Smart recursive directory scanning</li>
-                                    <li>🛡️ Enhanced error handling and stability</li>
-                                    <li>🌙 Modern dark theme interface</li>
+                                    <li>🎥 Video and 🎵 audio detection</li>
+                                    <li>🗂️ Recursive scan with depth control</li>
+                                    <li>⏯️ Pause, resume, and cancel controls</li>
+                                    <li>🌐 Apache, Nginx, LiteSpeed, Lighttpd, IIS, and Caddy support</li>
                                 </ul>
-                                <p>For updates and more information, visit the <a href="https://github.com/hasanbeder/M3Unator" target="_blank">GitHub repository</a>.</p>
+                                <p>🔒 Runs locally in your browser. No upload.</p>
+                                <p>🔗 <a href="https://github.com/hasanbeder/M3Unator" target="_blank" rel="noopener noreferrer">GitHub repo</a></p>
                             </div>
                         </div>
                     </div>
                     <div class="M3Unator-content">
                         <div class="M3Unator-input-row">
-                            <div class="M3Unator-input-group">
+                            <div class="M3Unator-input-group M3Unator-format-group">
+                                <label for="playlistName" class="M3Unator-visually-hidden">Playlist name</label>
                                 <input type="text" 
                                     id="playlistName" 
                                     class="M3Unator-input"
@@ -2853,16 +2848,16 @@
                                     autocomplete="off"
                                     autocorrect="off"
                                     autocapitalize="off">
-
+                                <label for="playlistFormat" class="M3Unator-visually-hidden">Format</label>
                                 <div class="M3Unator-dropdown">
-                                    <button type="button" class="M3Unator-dropdown-button">
+                                    <button type="button" class="M3Unator-dropdown-button" id="playlistFormat" aria-haspopup="listbox" aria-expanded="false">
                                         <span>.m3u</span>
                                         ${this.icons.chevronDown}
                                     </button>
-                                    <div class="M3Unator-dropdown-menu">
-                                        <div class="M3Unator-dropdown-item selected" data-value="m3u">.m3u</div>
+                                    <div class="M3Unator-dropdown-menu" role="listbox" aria-label="Playlist format">
+                                        <div class="M3Unator-dropdown-item selected" data-value="m3u" data-button-label=".m3u" role="option" aria-selected="true">.m3u</div>
                                         <div class="M3Unator-dropdown-divider"></div>
-                                        <div class="M3Unator-dropdown-item" data-value="m3u8">.m3u8</div>
+                                        <div class="M3Unator-dropdown-item" data-value="m3u8" data-button-label=".m3u8" title="UTF-8 M3U export with BOM for wider player compatibility" role="option" aria-selected="false">.m3u8</div>
                                     </div>
                                 </div>
                             </div>
@@ -2897,7 +2892,7 @@
                             </div>
                         </div>
 
-                        <button class="M3Unator-button" id="generateBtn">
+                        <button type="button" class="M3Unator-button" id="generateBtn">
                             ${this.icons.download}
                             <span>Create Playlist</span>
                         </button>
@@ -2913,236 +2908,168 @@
                         </div>
 
                         <div class="M3Unator-log-container">
-                            <button class="M3Unator-log-toggle">
+                            <button type="button" class="M3Unator-log-toggle">
                                 <div class="toggle-text">
                                     ${this.icons.logToggle}
                                     <span>Recent Activity</span>
                                 </div>
-                                <div class="M3Unator-activity-indicator"></div>
+                                <div class="M3Unator-log-status">
+                                    <span class="M3Unator-log-counter">0</span>
+                                    <div class="M3Unator-activity-indicator"></div>
+                                </div>
                             </button>
                             <div id="scanLog" class="M3Unator-log collapsed"></div>
                         </div>
                     </div>
-
-                    <style>
-                        .M3Unator-container {
-                            max-width: 400px;
-                            width: 100%;
-                            background: transparent;
-                            backdrop-filter: none;
-                        }
-
-                        .M3Unator-popup {
-                            background: #1e1e2e;
-                            border-radius: 12px;
-                            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-                            border: 1px solid rgba(69, 71, 90, 0.6);
-                        }
-
-                        .info-modal {
-                            display: none;
-                            position: fixed;
-                            top: 0;
-                            left: 0;
-                            width: 100%;
-                            height: 100%;
-                            background: rgba(0, 0, 0, 0.75);
-                            z-index: 99999;
-                        }
-
-                        .info-content {
-                            position: absolute;
-                            top: 50%;
-                            left: 50%;
-                            transform: translate(-50%, -50%);
-                            background: #1e1e2e;
-                            padding: 2rem;
-                            border-radius: 12px;
-                            max-width: 600px;
-                            width: 90%;
-                            max-height: 80vh;
-                            overflow-y: auto;
-                            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-                            border: 1px solid rgba(69, 71, 90, 0.6);
-                        }
-
-                        .M3Unator-content {
-                            padding: 0.75rem;
-                            display: flex;
-                            flex-direction: column;
-                            gap: 0.75rem;
-                            max-width: 100%;
-                            overflow: hidden;
-                        }
-
-                        .M3Unator-input-row {
-                            display: flex;
-                            width: 100%;
-                            position: relative;
-                            max-width: 100%;
-                            overflow: visible;
-                        }
-
-                        .M3Unator-input-group {
-                            flex: 1;
-                            min-width: 0;
-                            position: relative;
-                        }
-
-                        .M3Unator-input {
-                            width: 100%;
-                            min-width: 0;
-                            padding-right: 80px;
-                            box-sizing: border-box;
-                            transition: all 0.2s ease;
-                            background: rgba(30, 30, 46, 0.6);
-                            border: 1px solid rgba(69, 71, 90, 0.6);
-                            border-radius: 6px;
-                            color: #f5c2e7;
-                            padding: 8px 80px 8px 12px;
-                            font-size: 14px;
-                        }
-
-                        .M3Unator-dropdown {
-                            position: absolute;
-                            right: 8px;
-                            top: 50%;
-                            transform: translateY(-50%);
-                            width: 70px;
-                            z-index: 9999;
-                            display: none;
-                        }
-
-                        .M3Unator-dropdown.active {
-                            display: block;
-                        }
-
-                        .M3Unator-dropdown-button {
-                            width: 100%;
-                            padding: 4px 8px;
-                            border-radius: 6px;
-                            background: rgba(30, 30, 46, 0.8);
-                            border: 1px solid rgba(69, 71, 90, 0.6);
-                            color: #f5c2e7;
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            gap: 4px;
-                            transition: all 0.2s ease;
-                            box-sizing: border-box;
-                            font-size: 14px;
-                        }
-
-                        .M3Unator-dropdown-button:hover {
-                            background: rgba(30, 30, 46, 0.9);
-                            border-color: rgba(69, 71, 90, 0.8);
-                        }
-
-                        .M3Unator-dropdown-menu {
-                            position: absolute;
-                            top: 100%;
-                            right: 0;
-                            width: 100%;
-                            margin-top: 4px;
-                            background: rgba(30, 30, 46, 0.95);
-                            border: 1px solid rgba(69, 71, 90, 0.6);
-                            border-radius: 6px;
-                            padding: 4px;
-                            display: none;
-                            box-sizing: border-box;
-                            z-index: 9999;
-                        }
-
-                        .M3Unator-dropdown.active .M3Unator-dropdown-menu {
-                            display: block;
-                        }
-
-                        .M3Unator-dropdown-item {
-                            padding: 8px 12px;
-                            cursor: pointer;
-                            border-radius: 4px;
-                            transition: all 0.2s ease;
-                            text-align: center;
-                            font-size: 14px;
-                            font-family: monospace;
-                            color: #cdd6f4;
-                        }
-
-                        .M3Unator-dropdown-divider {
-                            height: 1px;
-                            background: rgba(69, 71, 90, 0.6);
-                            margin: 6px 0;
-                        }
-
-                        .M3Unator-dropdown-menu {
-                            position: absolute;
-                            top: 100%;
-                            right: 0;
-                            width: 100%;
-                            margin-top: 4px;
-                            background: #1e1e2e;
-                            border: 1px solid rgba(69, 71, 90, 0.6);
-                            border-radius: 6px;
-                            padding: 6px;
-                            display: none;
-                            box-sizing: border-box;
-                            z-index: 9999;
-                        }
-
-                        .M3Unator-dropdown-button {
-                            width: 100%;
-                            padding: 4px 8px;
-                            border-radius: 6px;
-                            background: #1e1e2e;
-                            border: 1px solid rgba(69, 71, 90, 0.6);
-                            color: #f5c2e7;
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            gap: 4px;
-                            transition: all 0.2s ease;
-                            box-sizing: border-box;
-                            font-size: 14px;
-                            font-family: monospace;
-                        }
-
-                        .M3Unator-dropdown-item:hover {
-                            background: rgba(203, 166, 247, 0.1);
-                            color: #f5c2e7;
-                        }
-
-                        .M3Unator-dropdown-item.selected {
-                            background: rgba(203, 166, 247, 0.1);
-                            color: #cba6f7;
-                        }
-                    </style>
                 </div>
             `;
 
-            document.body.appendChild(container);
+            const launcher = this.createLauncherButton();
+            this.mountUiNodes(container, launcher);
+            this.initializeMountedUi(container);
+            this.cacheDomElements(container, launcher);
+            this.bindVisibilityHandlers();
+            this.setupPopupHandlers();
+            this.initializeLogUi();
+        }
+
+        buildToggleButtonsMarkup() {
+            return [
+                {
+                    id: 'includeVideo',
+                    title: 'Video (.mp4, .mkv)',
+                    label: 'Video',
+                    meta: 'MP4, MKV, MOV',
+                    icon: this.icons.video,
+                    checked: true
+                },
+                {
+                    id: 'includeAudio',
+                    title: 'Audio (.mp3, .m4a)',
+                    label: 'Audio',
+                    meta: 'MP3, FLAC, M4A',
+                    icon: this.icons.audio,
+                    checked: true
+                },
+                {
+                    id: 'recursiveSearch',
+                    title: 'Scan Subdirectories',
+                    label: 'Subfolders',
+                    meta: 'Recursive scan',
+                    icon: this.icons.folder,
+                    checked: true
+                }
+            ]
+                .map(props => this.createComponent('toggle', props))
+                .join('');
+        }
+
+        buildControlButtonsMarkup() {
+            return [
+                {
+                    type: 'pause',
+                    icon: this.icons.pause,
+                    text: 'Pause'
+                },
+                {
+                    type: 'resume',
+                    icon: this.icons.resume,
+                    text: 'Resume'
+                },
+                {
+                    type: 'cancel',
+                    icon: this.icons.cancel,
+                    text: 'Cancel'
+                }
+            ]
+                .map(props => this.createComponent('control', props))
+                .join('');
+        }
+
+        buildStatsItemsMarkup() {
+            return [
+                {
+                    icon: this.icons.file,
+                    id: 'totalFiles',
+                    title: 'Total Files',
+                    label: 'Total',
+                    class: ''
+                },
+                {
+                    icon: this.icons.video,
+                    id: 'videoFiles',
+                    title: 'Video (.mp4, .mkv)',
+                    label: 'Video',
+                    class: 'video'
+                },
+                {
+                    icon: this.icons.audio,
+                    id: 'audioFiles',
+                    title: 'Audio (.mp3, .m4a)',
+                    label: 'Audio',
+                    class: 'audio'
+                },
+                {
+                    icon: this.icons.folder,
+                    id: 'directories',
+                    title: 'Subdirectories',
+                    label: 'Folders',
+                    class: 'dir'
+                },
+                {
+                    icon: this.icons.layers,
+                    id: 'depthLevel',
+                    title: 'Depth Level',
+                    label: 'Depth',
+                    class: 'depth'
+                },
+                {
+                    icon: this.icons.error,
+                    id: 'errors',
+                    title: 'Error',
+                    label: 'Errors',
+                    class: 'error'
+                }
+            ]
+                .map(props => this.createComponent('stats', props))
+                .join('');
+        }
+
+        createLauncherButton() {
             const launcher = document.createElement('button');
             launcher.className = 'M3Unator-launcher';
+            launcher.type = 'button';
+            launcher.setAttribute('aria-haspopup', 'dialog');
+            launcher.setAttribute('aria-expanded', 'false');
             launcher.innerHTML = `
                 ${this.icons.video}
-                <span>M3Unator</span>
+                ${this.getBrandTextMarkup()}
             `;
-            
+
+            return launcher;
+        }
+
+        mountUiNodes(container, launcher) {
+            document.body.appendChild(container);
             document.body.appendChild(launcher);
+        }
+
+        initializeMountedUi(container) {
             const popup = container.querySelector('.M3Unator-popup');
             const header = container.querySelector('.M3Unator-header');
-            this.makeDraggable(popup, header);
-            const statsBar = container.querySelector('.M3Unator-stats-bar');
-            if (statsBar) {
-                statsBar.style.display = 'block';
-            }
 
+            this.makeDraggable(popup, header);
+        }
+
+        cacheDomElements(container, launcher) {
             this.domElements = {
                 container,
                 popup: container.querySelector('.M3Unator-popup'),
                 header: container.querySelector('.M3Unator-header'),
                 closeBtn: container.querySelector('.M3Unator-close'),
+                infoLink: container.querySelector('.info-link'),
+                infoClose: container.querySelector('.info-close'),
+                infoModal: container.querySelector('.info-modal'),
                 generateBtn: container.querySelector('#generateBtn'),
                 playlistInput: container.querySelector('#playlistName'),
                 includeVideo: container.querySelector('#includeVideo'),
@@ -3152,6 +3079,7 @@
                 scanLog: container.querySelector('#scanLog'),
                 statsBar: container.querySelector('.M3Unator-stats-bar'),
                 dropdown: container.querySelector('.M3Unator-dropdown'),
+                dropdownButton: container.querySelector('.M3Unator-dropdown-button'),
                 launcher,
                 stats: {
                     totalFiles: container.querySelector('#totalFiles'),
@@ -3167,43 +3095,131 @@
                 maxDepth: container.querySelector('#maxDepth'),
                 logToggle: container.querySelector('.M3Unator-log-toggle'),
                 logCounter: container.querySelector('.M3Unator-log-counter'),
-                activityIndicator: container.querySelector('.M3Unator-activity-indicator'),
+                activityIndicator: container.querySelector('.M3Unator-activity-indicator')
+            };
+        }
+
+        centerPopupInViewport() {
+            const popup = this.domElements.popup;
+            const rect = popup.getBoundingClientRect();
+            const centerX = Math.max(0, (window.innerWidth - rect.width) / 2);
+            const centerY = Math.max(0, (window.innerHeight - rect.height) / 2);
+            popup.style.left = `${centerX}px`;
+            popup.style.top = `${centerY}px`;
+        }
+
+        focusPrimaryInput() {
+            const playlistInput = this.domElements.playlistInput;
+            if (playlistInput && typeof playlistInput.focus === 'function') {
+                playlistInput.focus();
+            }
+        }
+
+        focusLauncher() {
+            const launcher = this.domElements.launcher;
+            if (launcher && typeof launcher.focus === 'function') {
+                launcher.focus();
+            }
+        }
+
+        isPanelOpen() {
+            return this.domElements.container?.getAttribute('data-visible') === 'true';
+        }
+
+        isInfoModalOpen() {
+            const infoModal = this.domElements.infoModal;
+            return Boolean(infoModal && infoModal.style.display === 'block');
+        }
+
+        openInfoModal() {
+            const { infoModal, infoClose } = this.domElements;
+            if (!infoModal) {
+                return;
+            }
+
+            infoModal.style.display = 'block';
+            if (infoClose && typeof infoClose.focus === 'function') {
+                infoClose.focus();
+            }
+        }
+
+        closeInfoModal({ restoreFocus = false } = {}) {
+            const { infoModal, infoLink } = this.domElements;
+            if (!infoModal) {
+                return;
+            }
+
+            infoModal.style.display = 'none';
+            if (restoreFocus && infoLink && typeof infoLink.focus === 'function') {
+                infoLink.focus();
+            }
+        }
+
+        openPanel() {
+            this.domElements.container.setAttribute('data-visible', 'true');
+            this.domElements.launcher.classList.add('is-hidden');
+            this.domElements.launcher.setAttribute('aria-expanded', 'true');
+            document.body.classList.add('modal-open');
+            this.centerPopupInViewport();
+            if (typeof this.syncDropdownVisibility === 'function') {
+                const dropdownButton = this.domElements.dropdown?.querySelector('.M3Unator-dropdown-button');
+                this.syncDropdownVisibility(this.domElements.playlistInput, this.domElements.dropdown, dropdownButton);
+            }
+
+            this.focusPrimaryInput();
+        }
+
+        closePanel() {
+            this.domElements.container.removeAttribute('data-visible');
+            this.domElements.launcher.classList.remove('is-hidden');
+            this.domElements.launcher.setAttribute('aria-expanded', 'false');
+            this.closeInfoModal();
+
+            document.body.classList.remove('modal-open');
+            this.focusLauncher();
+        }
+
+        bindVisibilityHandlers() {
+            this.domElements.launcher.onclick = () => {
+                this.openPanel();
             };
 
-            launcher.onclick = () => {
-                this.domElements.container.setAttribute('data-visible', 'true');
-                const overlay = document.createElement('div');
-                overlay.className = 'M3Unator-overlay';
-                document.body.appendChild(overlay);
-                
-                const popup = this.domElements.popup;
-                const rect = popup.getBoundingClientRect();
-                const centerX = (window.innerWidth - rect.width) / 2;
-                const centerY = (window.innerHeight - rect.height) / 2;
-                popup.style.left = `${centerX}px`;
-                popup.style.top = `${centerY}px`;
-            };
-
-            document.querySelector('.M3Unator-close').onclick = () => {
+            this.domElements.closeBtn.onclick = () => {
                 if (this.state.isGenerating) {
-                this.state.isGenerating = false;
-                this.state.isPaused = false;
+                    this.state.isGenerating = false;
+                    this.state.isPaused = false;
                     this.reset({ isCancelled: true, enableToggles: true });
                     this.showToast('Scan cancelled', 'warning');
                 }
-                this.domElements.container.removeAttribute('data-visible');
-                const overlay = document.querySelector('.M3Unator-overlay');
-                if (overlay) overlay.remove();
+
+                this.closePanel();
             };
+        }
 
-            this.setupPopupHandlers();
+        bindKeyboardHandlers() {
+            document.addEventListener('keydown', event => {
+                if (event.key !== 'Escape') {
+                    return;
+                }
 
-            this.updateCounter(0);
+                if (this.isInfoModalOpen()) {
+                    event.preventDefault();
+                    this.closeInfoModal({ restoreFocus: true });
+                    return;
+                }
 
+                if (this.isPanelOpen() && !this.state.isGenerating) {
+                    event.preventDefault();
+                    this.closePanel();
+                }
+            });
+        }
+
+        bindLogToggleHandler() {
             this.domElements.logToggle.addEventListener('click', () => {
                 const log = this.domElements.scanLog;
                 const toggle = this.domElements.logToggle;
-                
+
                 if (log.classList.contains('expanded')) {
                     log.classList.remove('expanded');
                     toggle.classList.remove('active');
@@ -3213,50 +3229,15 @@
                     log.scrollTop = log.scrollHeight;
                 }
             });
-
-            this.domElements.scanLog.classList.remove('expanded');
-            this.domElements.logToggle.classList.remove('active');
-
-            this.logCount = 0;
         }
 
-        updateStyles() {
-            GM_addStyle(`
-                .M3Unator-toggle-container {
-                    @extend .M3Unator-toggle-base;
-                }
-
-                .M3Unator-control-btn {
-                    @extend .M3Unator-control-base;
-                }
-
-                .M3Unator-stat {
-                    @extend .M3Unator-stat-base;
-                }
-
-                .M3Unator-toggle-container span {
-                    @extend .M3Unator-icon-base;
-                    background: #1e1e2e;
-                    border: 2px solid #45475a;
-                    border-radius: 16px;
-                }
-
-                .M3Unator-control-btn.pause {
-                    border-color: #fab387;
-                    color: #fab387;
-                }
-
-                .M3Unator-control-btn.resume {
-                    border-color: #94e2d5;
-                    color: #94e2d5;
-                }
-
-                .M3Unator-control-btn.cancel {
-                    border-color: #f38ba8;
-                    color: #f38ba8;
-                }
-
-            `);
+        initializeLogUi() {
+            this.updateCounter(0);
+            this.bindLogToggleHandler();
+            this.bindKeyboardHandlers();
+            this.domElements.scanLog.classList.remove('expanded');
+            this.domElements.logToggle.classList.remove('active');
+            this.logCount = 0;
         }
 
         makeDraggable(element, handle) {
@@ -3272,36 +3253,36 @@
                 const rect = element.getBoundingClientRect();
                 const centerX = (window.innerWidth - rect.width) / 2;
                 const centerY = (window.innerHeight - rect.height) / 2;
-                
+
                 element.style.left = `${centerX}px`;
                 element.style.top = `${centerY}px`;
-                
+
                 xOffset = centerX;
                 yOffset = centerY;
-                
+
                 element.style.transform = 'none';
             };
 
             centerWindow();
 
-            const getPosition = (e) => {
+            const getPosition = e => {
                 return {
                     x: e.type.includes('touch') ? e.touches[0].clientX : e.clientX,
                     y: e.type.includes('touch') ? e.touches[0].clientY : e.clientY
                 };
             };
 
-            const dragStart = (e) => {
+            const dragStart = e => {
                 if (e.target === handle || handle.contains(e.target)) {
                     e.preventDefault();
                     const pos = getPosition(e);
-                    
+
                     isDragging = true;
-                    
+
                     const rect = element.getBoundingClientRect();
                     xOffset = rect.left;
                     yOffset = rect.top;
-                    
+
                     initialX = pos.x - xOffset;
                     initialY = pos.y - yOffset;
 
@@ -3309,7 +3290,7 @@
                 }
             };
 
-            const drag = (e) => {
+            const drag = e => {
                 if (isDragging) {
                     e.preventDefault();
                     const pos = getPosition(e);
@@ -3326,7 +3307,7 @@
 
                     element.style.left = `${currentX}px`;
                     element.style.top = `${currentY}px`;
-                    
+
                     xOffset = currentX;
                     yOffset = currentY;
                 }
@@ -3363,7 +3344,7 @@
             element.style.transition = 'none';
         }
 
-        showToast(message, type = 'success', duration = 3000) {
+        ensureToastContainer() {
             let toastContainer = document.querySelector('.M3Unator-toast-container');
             if (!toastContainer) {
                 toastContainer = document.createElement('div');
@@ -3371,36 +3352,35 @@
                 document.body.appendChild(toastContainer);
             }
 
-            // Remove previous toasts
+            return toastContainer;
+        }
+
+        clearExistingToasts(toastContainer) {
             const existingToasts = toastContainer.querySelectorAll('.M3Unator-toast');
             existingToasts.forEach(toast => {
                 toast.classList.add('removing');
                 setTimeout(() => toast.remove(), 300);
             });
+        }
 
+        createToastElement(message, type) {
             const toast = document.createElement('div');
             toast.className = `M3Unator-toast ${type}`;
-            
             const icon = this.icons[type] || this.icons.info;
             toast.innerHTML = `${icon}<span>${message}</span>`;
-            
-            toastContainer.appendChild(toast);
-            
-            // Force a reflow to ensure the animation plays
-            void toast.offsetWidth;
-            
-            // Add show class to trigger animation
-            requestAnimationFrame(() => {
-                toast.classList.add('show');
-            });
+            return toast;
+        }
 
+        scheduleToastRemoval(toast, toastContainer, duration) {
             setTimeout(() => {
                 toast.classList.add('removing');
                 toast.classList.remove('show');
+
                 setTimeout(() => {
                     if (toast.parentNode === toastContainer) {
                         toast.remove();
                     }
+
                     if (toastContainer.children.length === 0) {
                         toastContainer.remove();
                     }
@@ -3408,75 +3388,138 @@
             }, duration);
         }
 
-        setupPopupHandlers() {
-            const generateBtn = this.domElements.generateBtn;
-            const playlistInput = this.domElements.playlistInput;
-            const includeVideo = this.domElements.includeVideo;
-            const includeAudio = this.domElements.includeAudio;
-            const recursiveSearch = this.domElements.recursiveSearch;
-            const controls = this.domElements.controls;
+        showToast(message, type = 'success', duration = 3000) {
+            const toastContainer = this.ensureToastContainer();
+            this.clearExistingToasts(toastContainer);
 
-            const dropdown = this.domElements.dropdown;
-            const dropdownButton = dropdown.querySelector('.M3Unator-dropdown-button');
-            const dropdownItems = dropdown.querySelectorAll('.M3Unator-dropdown-item');
+            const toast = this.createToastElement(message, type);
+            toastContainer.appendChild(toast);
 
-            const controlButtons = controls.querySelectorAll('.M3Unator-control-btn');
-            const pauseBtn = controlButtons[0];
-            const resumeBtn = controlButtons[1];
-            const cancelBtn = controlButtons[2];
+            void toast.offsetWidth;
 
-            dropdownButton.addEventListener('click', () => {
-                dropdown.classList.toggle('active');
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
             });
 
-            document.addEventListener('click', (e) => {
-                if (!dropdown.contains(e.target)) {
-                    dropdown.classList.remove('active');
+            this.scheduleToastRemoval(toast, toastContainer, duration);
+        }
+
+        getControlButtons(controls) {
+            const controlButtons = controls.querySelectorAll('.M3Unator-control-btn');
+            return {
+                pauseBtn: controlButtons[0],
+                resumeBtn: controlButtons[1],
+                cancelBtn: controlButtons[2]
+            };
+        }
+
+        initializePopupSelections(includeVideo, includeAudio, recursiveSearch) {
+            recursiveSearch.checked = true;
+            includeVideo.checked = true;
+            includeAudio.checked = true;
+            this.state.recursiveSearch = true;
+            this.state.includeVideo = true;
+            this.state.includeAudio = true;
+        }
+
+        syncDropdownVisibility(playlistInput, dropdown, dropdownButton) {
+            const isVisible = Boolean(playlistInput && playlistInput.value.trim());
+
+            dropdown.classList.toggle('is-visible', isVisible);
+            dropdown.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+
+            if (!isVisible || (dropdownButton && dropdownButton.disabled)) {
+                dropdown.classList.remove('active');
+                if (dropdownButton) {
+                    dropdownButton.setAttribute('aria-expanded', 'false');
+                }
+            }
+        }
+
+        bindPlaylistInputHandlers(playlistInput, dropdown, dropdownButton) {
+            const syncVisibility = () => {
+                this.syncDropdownVisibility(playlistInput, dropdown, dropdownButton);
+            };
+
+            playlistInput.addEventListener('input', syncVisibility);
+            playlistInput.addEventListener('change', syncVisibility);
+            syncVisibility();
+        }
+
+        collapseFormatDropdown(dropdown, dropdownButton) {
+            if (dropdown) {
+                dropdown.classList.remove('active');
+            }
+
+            if (dropdownButton) {
+                dropdownButton.setAttribute('aria-expanded', 'false');
+            }
+        }
+
+        setFormatSelectionLocked(isLocked) {
+            const { dropdown, dropdownButton } = this.domElements;
+            if (!dropdownButton) return;
+
+            this.collapseFormatDropdown(dropdown, dropdownButton);
+            dropdownButton.disabled = isLocked;
+            dropdownButton.setAttribute('aria-disabled', isLocked ? 'true' : 'false');
+        }
+
+        bindDropdownHandlers(dropdown, dropdownButton, dropdownItems) {
+            dropdownButton.addEventListener('click', () => {
+                if (dropdownButton.disabled) {
+                    return;
+                }
+
+                dropdown.classList.toggle('active');
+                dropdownButton.setAttribute('aria-expanded', dropdown.classList.contains('active') ? 'true' : 'false');
+            });
+
+            document.addEventListener('click', event => {
+                if (!dropdown.contains(event.target)) {
+                    this.collapseFormatDropdown(dropdown, dropdownButton);
                 }
             });
 
             dropdownItems.forEach(item => {
                 item.addEventListener('click', () => {
-                    dropdownItems.forEach(i => i.classList.remove('selected'));
+                    if (dropdownButton.disabled || this.state.isGenerating) {
+                        return;
+                    }
+
+                    dropdownItems.forEach(dropdownItem => {
+                        dropdownItem.classList.remove('selected');
+                        dropdownItem.setAttribute('aria-selected', 'false');
+                    });
                     item.classList.add('selected');
-                    dropdownButton.querySelector('span').textContent = item.textContent;
+                    item.setAttribute('aria-selected', 'true');
+                    dropdownButton.querySelector('span').textContent =
+                        item.dataset.buttonLabel || item.textContent.trim();
                     this.state.selectedFormat = item.dataset.value;
-                    dropdown.classList.remove('active');
+                    this.collapseFormatDropdown(dropdown, dropdownButton);
                 });
             });
+        }
 
-            recursiveSearch.checked = true;
-            this.state.recursiveSearch = true;
-            includeVideo.checked = true;
-            includeAudio.checked = true;
-            this.state.includeVideo = true;
-            this.state.includeAudio = true;
-
-            includeVideo.addEventListener('change', (e) => {
-                this.state.includeVideo = e.target.checked;
+        bindMediaToggleHandlers(includeVideo, includeAudio) {
+            includeVideo.addEventListener('change', event => {
+                this.state.includeVideo = event.target.checked;
                 this.addLogEntry(
-                    e.target.checked ? 
-                    'Video files will be included' : 
-                    'Video files will not be included',
+                    event.target.checked ? 'Video files will be included' : 'Video files will not be included',
                     'info'
                 );
             });
 
-            includeAudio.addEventListener('change', (e) => {
-                this.state.includeAudio = e.target.checked;
+            includeAudio.addEventListener('change', event => {
+                this.state.includeAudio = event.target.checked;
                 this.addLogEntry(
-                    e.target.checked ? 
-                    'Audio files will be included' : 
-                    'Audio files will not be included',
+                    event.target.checked ? 'Audio files will be included' : 'Audio files will not be included',
                     'info'
                 );
             });
+        }
 
-                const currentDepth = this.domElements.currentDepth;
-                const customDepth = this.domElements.customDepth;
-                const maxDepth = this.domElements.maxDepth;
-            const depthControls = this.domElements.depthControls;
-
+        initializeDepthControls(currentDepth, customDepth, maxDepth, depthControls) {
             depthControls.style.display = 'none';
             depthControls.classList.remove('active');
             this.state.maxDepth = -1;
@@ -3485,220 +3528,275 @@
             customDepth.checked = false;
             maxDepth.disabled = true;
             maxDepth.value = '1';
+        }
 
-            recursiveSearch.addEventListener('change', (e) => {
-                if (!e.target.checked) {
+        bindDepthControlHandlers(recursiveSearch, currentDepth, customDepth, maxDepth, depthControls) {
+            recursiveSearch.addEventListener('change', event => {
+                if (!event.target.checked) {
                     depthControls.style.display = 'block';
                     depthControls.classList.add('active');
-                    
                     currentDepth.checked = true;
                     customDepth.checked = false;
                     maxDepth.disabled = true;
                     this.state.maxDepth = 0;
-                    
                     this.addLogEntry('Directory scanning disabled, only current directory will be scanned', 'info');
                 } else {
                     depthControls.style.display = 'none';
                     depthControls.classList.remove('active');
-                    
                     this.state.maxDepth = -1;
                     this.state.recursiveSearch = true;
-                    
                     this.addLogEntry('Directory scanning active, all directories will be scanned', 'info');
                 }
             });
 
-            this.domElements.currentDepth.addEventListener('change', (e) => {
-                if (e.target.checked && !recursiveSearch.checked) {
+            currentDepth.addEventListener('change', event => {
+                if (event.target.checked && !recursiveSearch.checked) {
                     this.state.maxDepth = 0;
-                    this.domElements.maxDepth.disabled = true;
+                    maxDepth.disabled = true;
                     this.addLogEntry('Only current directory will be scanned', 'info');
                 }
             });
 
-            this.domElements.customDepth.addEventListener('change', (e) => {
-                if (e.target.checked && !recursiveSearch.checked) {
-                    const depthValue = parseInt(this.domElements.maxDepth.value) || 1;
+            customDepth.addEventListener('change', event => {
+                if (event.target.checked && !recursiveSearch.checked) {
+                    const depthValue = parseInt(maxDepth.value) || 1;
                     this.state.maxDepth = depthValue;
-                    this.domElements.maxDepth.disabled = false;
+                    maxDepth.disabled = false;
                     this.addLogEntry(
-                        `Directory scanning depth: ${depthValue} ` +
-                        `(current directory + ${depthValue} sublevels)`, 
+                        `Directory scanning depth: ${depthValue} ` + `(current directory + ${depthValue} sublevels)`,
                         'info'
                     );
                 }
             });
 
-            this.domElements.maxDepth.addEventListener('input', (e) => {
-                if (this.domElements.customDepth.checked && !recursiveSearch.checked) {
-                    const value = Math.min(99, Math.max(1, parseInt(e.target.value) || 1));
-                    e.target.value = value;
+            maxDepth.addEventListener('input', event => {
+                if (customDepth.checked && !recursiveSearch.checked) {
+                    const value = Math.min(99, Math.max(1, parseInt(event.target.value) || 1));
+                    event.target.value = value;
                     this.state.maxDepth = value;
                     this.addLogEntry(
-                        `Directory scanning depth updated: ${value} ` +
-                        `(current directory + ${value} sublevels)`, 
+                        `Directory scanning depth updated: ${value} ` + `(current directory + ${value} sublevels)`,
                         'info'
                     );
-                }
-            });
-
-            pauseBtn.addEventListener('click', () => {
-                this.state.isPaused = true;
-                this.updateActivityIndicator('paused');
-                pauseBtn.style.display = 'none';
-                resumeBtn.style.display = 'flex';
-                
-                generateBtn.innerHTML = `
-                    <div class="M3Unator-spinner" style="animation-play-state: paused;"></div>
-                    <span>Scan paused</span>
-                `;
-                
-                this.showToast('Scan paused', 'warning');
-                this.addLogEntry('Scan paused...', 'warning');
-            });
-
-            resumeBtn.addEventListener('click', () => {
-                this.state.isPaused = false;
-                this.updateActivityIndicator('active');
-                resumeBtn.style.display = 'none';
-                pauseBtn.style.display = 'flex';
-                
-                generateBtn.innerHTML = `
-                    <div class="M3Unator-spinner"></div>
-                    <span>Creating...</span>
-                `;
-                
-                this.showToast('Scan resumed', 'success');
-                this.addLogEntry('Scan in progress...', 'success');
-            });
-
-            cancelBtn.addEventListener('click', () => {
-                this.state.isGenerating = false;
-                this.state.isPaused = false;
-                this.updateActivityIndicator('cancelled');
-                
-                setTimeout(() => {
-                    this.reset({ isCancelled: true, enableToggles: true });
-                this.showToast('Scan cancelled', 'warning');
-                }, 100);
-            });
-
-            generateBtn.addEventListener('click', async () => {
-                const playlistName = this.sanitizeInput(playlistInput.value.trim());
-
-                if (!playlistName) {
-                    this.showToast('Please enter a valid playlist name', 'warning');
-                    playlistInput.focus();
-                    return;
-                }
-
-                if (!this.state.includeVideo && !this.state.includeAudio) {
-                    this.showToast('Please select at least one media type', 'warning');
-                    return;
-                }
-
-                try {
-                    this.entries = [];
-                    this.seenUrls.clear();
-                    this.logCount = 0;
-                    if (this.domElements.scanLog) {
-                        this.domElements.scanLog.innerHTML = '';
-                    }
-                    this.state.stats = JSON.parse(JSON.stringify(this.initialStats));
-
-                    this.state.isGenerating = true;
-                    this.state.isPaused = false;
-                    this.updateActivityIndicator('active');
-                    this.showToast('Scan started', 'success');
-                    
-                    generateBtn.disabled = true;
-                    generateBtn.innerHTML = `
-                        <div class="M3Unator-spinner"></div>
-                        <span>Creating...</span>
-                    `;
-
-                    this.domElements.includeVideo.disabled = true;
-                    this.domElements.includeAudio.disabled = true;
-                    this.domElements.recursiveSearch.disabled = true;
-                    this.domElements.currentDepth.disabled = true;
-                    this.domElements.customDepth.disabled = true;
-                    this.domElements.maxDepth.disabled = true;
-
-                    controls.style.display = 'flex';
-                    controls.classList.add('active');
-                    
-                    if (pauseBtn) {
-                        pauseBtn.style.display = 'flex';
-                        resumeBtn.style.display = 'none';
-                        cancelBtn.style.display = 'flex';
-                    }
-
-                    this.domElements.statsBar.style.display = 'block';
-                    this.domElements.statsBar.classList.add('active');
-
-                    const entries = await this.scanDirectory(window.location.href, '', 0);
-
-                    if (!this.state.isGenerating) {
-                        return;
-                    }
-
-                    if (entries.length === 0) {
-                        this.state.isGenerating = false;
-                        this.updateActivityIndicator('cancelled');
-                        this.showToast('No media files found', 'error');
-                        this.reset({ isCancelled: true });
-                        return;
-                    }
-
-                    this.addLogEntry(`Total ${entries.length} files found.`, 'success');
-                    this.updateCounter(entries.length);
-
-                    const content = this.createPlaylist(entries);
-                    const fileName = `${playlistName}.${this.state.selectedFormat}`;
-
-                    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = fileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-
-                    this.showToast(`Playlist "${fileName}" created successfully`, 'success');
-                    this.updateActivityIndicator('completed');
-                    this.reset({ keepLogs: true, keepUI: true, enableToggles: true });
-
-                } catch (error) {
-                    this.state.isGenerating = false;
-                    this.state.isPaused = false;
-                    this.updateActivityIndicator('cancelled');
-                    console.error('Error creating playlist:', error);
-                    this.addLogEntry(`Error: ${error.message}`, 'error');
-                    this.showToast('Error creating playlist', 'error');
-                    this.reset({ isCancelled: true });
                 }
             });
         }
 
-        reset(options = {}) {
-            const {
-                isCancelled = false,
-                uiOnly = false,
-                keepLogs = false,
-                keepUI = false,
-                enableToggles = false,
-                wasGenerating = this.state.isGenerating
-            } = options;
+        renderGeneratingButton(generateBtn, isPaused = false) {
+            generateBtn.innerHTML = isPaused
+                ? `
+                    <div class="M3Unator-spinner" style="animation-play-state: paused;"></div>
+                    <span>Scan paused</span>
+                `
+                : `
+                    <div class="M3Unator-spinner"></div>
+                    <span>Creating...</span>
+                `;
+        }
 
-            // Save current state before updating
-            const wasPaused = this.state.isPaused;
-            
+        handlePauseScan(pauseBtn, resumeBtn, generateBtn) {
+            this.state.isPaused = true;
+            this.updateActivityIndicator('paused');
+            pauseBtn.style.display = 'none';
+            resumeBtn.style.display = 'flex';
+            this.renderGeneratingButton(generateBtn, true);
+            this.showToast('Scan paused', 'warning');
+            this.addLogEntry('Scan paused...', 'warning');
+        }
+
+        handleResumeScan(pauseBtn, resumeBtn, generateBtn) {
+            this.state.isPaused = false;
+            this.updateActivityIndicator('active');
+            resumeBtn.style.display = 'none';
+            pauseBtn.style.display = 'flex';
+            this.renderGeneratingButton(generateBtn, false);
+            this.showToast('Scan resumed', 'success');
+            this.addLogEntry('Scan in progress...', 'success');
+        }
+
+        handleCancelScan() {
             this.state.isGenerating = false;
             this.state.isPaused = false;
-            
-            // Update activity indicator
+            this.updateActivityIndicator('cancelled');
+
+            setTimeout(() => {
+                this.reset({ isCancelled: true, enableToggles: true });
+                this.showToast('Scan cancelled', 'warning');
+            }, 100);
+        }
+
+        clearLogSessionState() {
+            this.logCount = 0;
+
+            if (this._updateLogUITimeout) {
+                clearTimeout(this._updateLogUITimeout);
+                this._updateLogUITimeout = null;
+            }
+
+            if (this.logCache) {
+                this.logCache.clear();
+            }
+
+            if (this.domElements.scanLog) {
+                this.domElements.scanLog.innerHTML = '';
+            }
+
+            if (this.domElements.logCounter) {
+                this.domElements.logCounter.textContent = '0';
+            }
+        }
+
+        resetScanSessionState() {
+            this.entries = [];
+            this.resetSeenUrlCache();
+            this.clearLogSessionState();
+
+            this.state.stats = JSON.parse(JSON.stringify(this.initialStats));
+        }
+
+        prepareScanRunUi(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn) {
+            this.state.isGenerating = true;
+            this.state.isPaused = false;
+            this.updateActivityIndicator('active');
+            this.showToast('Scan started', 'success');
+
+            generateBtn.disabled = true;
+            this.renderGeneratingButton(generateBtn, false);
+
+            this.domElements.includeVideo.disabled = true;
+            this.domElements.includeAudio.disabled = true;
+            this.domElements.recursiveSearch.disabled = true;
+            this.domElements.currentDepth.disabled = true;
+            this.domElements.customDepth.disabled = true;
+            this.domElements.maxDepth.disabled = true;
+            this.setFormatSelectionLocked(true);
+
+            controls.style.display = 'flex';
+            controls.classList.add('active');
+
+            if (pauseBtn) {
+                pauseBtn.style.display = 'flex';
+                resumeBtn.style.display = 'none';
+                cancelBtn.style.display = 'flex';
+            }
+
+            this.domElements.statsBar.style.display = 'block';
+            this.domElements.statsBar.classList.add('active');
+            this.centerPopupInViewport();
+        }
+
+        downloadPlaylistFile(content, fileName, mimeType = 'text/plain;charset=utf-8') {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        async handleGenerateRequest(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn, playlistInput) {
+            const playlistName = this.sanitizeInput(playlistInput.value.trim());
+
+            if (!playlistName) {
+                this.showToast('Please enter a valid playlist name', 'warning');
+                playlistInput.focus();
+                return;
+            }
+
+            if (!this.state.includeVideo && !this.state.includeAudio) {
+                this.showToast('Please select at least one media type', 'warning');
+                return;
+            }
+
+            try {
+                this.resetScanSessionState();
+                this.prepareScanRunUi(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn);
+
+                const entries = await this.scanDirectory(window.location.href, '', 0);
+
+                if (!this.state.isGenerating) {
+                    return;
+                }
+
+                if (entries.length === 0) {
+                    this.state.isGenerating = false;
+                    this.updateActivityIndicator('cancelled');
+                    this.showToast('No media files found', 'error');
+                    this.reset({ isCancelled: true });
+                    return;
+                }
+
+                this.addLogEntry(`Total ${entries.length} files found.`, 'success');
+                this.updateCounter(entries.length);
+
+                const downloadPayload = this.buildPlaylistDownloadPayload(entries, this.state.selectedFormat);
+                const fileName = `${playlistName}.${downloadPayload.extension}`;
+                this.downloadPlaylistFile(downloadPayload.content, fileName, downloadPayload.mimeType);
+
+                this.showToast(`Playlist "${fileName}" created successfully`, 'success');
+                this.updateActivityIndicator('completed');
+                this.reset({ keepLogs: true, keepUI: true, enableToggles: true });
+            } catch (error) {
+                this.state.isGenerating = false;
+                this.state.isPaused = false;
+                this.updateActivityIndicator('cancelled');
+                console.error('Error creating playlist:', error);
+                this.addLogEntry(`Error: ${error.message}`, 'error');
+                this.showToast('Error creating playlist', 'error');
+                this.reset({ isCancelled: true });
+            }
+        }
+
+        bindScanControlHandlers(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn, playlistInput) {
+            pauseBtn.addEventListener('click', () => {
+                this.handlePauseScan(pauseBtn, resumeBtn, generateBtn);
+            });
+
+            resumeBtn.addEventListener('click', () => {
+                this.handleResumeScan(pauseBtn, resumeBtn, generateBtn);
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                this.handleCancelScan();
+            });
+
+            generateBtn.addEventListener('click', async () => {
+                await this.handleGenerateRequest(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn, playlistInput);
+            });
+        }
+
+        setupPopupHandlers() {
+            const {
+                generateBtn,
+                playlistInput,
+                includeVideo,
+                includeAudio,
+                recursiveSearch,
+                controls,
+                dropdown,
+                currentDepth,
+                customDepth,
+                maxDepth,
+                depthControls
+            } = this.domElements;
+
+            const dropdownButton = dropdown.querySelector('.M3Unator-dropdown-button');
+            const dropdownItems = dropdown.querySelectorAll('.M3Unator-dropdown-item');
+            const { pauseBtn, resumeBtn, cancelBtn } = this.getControlButtons(controls);
+
+            this.bindPlaylistInputHandlers(playlistInput, dropdown, dropdownButton);
+            this.bindDropdownHandlers(dropdown, dropdownButton, dropdownItems);
+            this.initializePopupSelections(includeVideo, includeAudio, recursiveSearch);
+            this.bindMediaToggleHandlers(includeVideo, includeAudio);
+            this.initializeDepthControls(currentDepth, customDepth, maxDepth, depthControls);
+            this.bindDepthControlHandlers(recursiveSearch, currentDepth, customDepth, maxDepth, depthControls);
+            this.bindScanControlHandlers(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn, playlistInput);
+        }
+
+        updateResetActivityState(isCancelled, wasPaused, wasGenerating) {
             if (isCancelled || wasPaused) {
                 this.updateActivityIndicator('cancelled');
             } else if (wasGenerating) {
@@ -3706,98 +3804,97 @@
             } else {
                 this.updateActivityIndicator(null);
             }
-            
-            if (!uiOnly) {
-                this.entries = [];
-                this.seenUrls.clear();
-                
-                if (!keepLogs) {
-                    this.logCount = 0;
-                    if (this.domElements.scanLog) {
-                        this.domElements.scanLog.innerHTML = '';
-                    }
-                    if (this.domElements.logCounter) {
-                        this.domElements.logCounter.textContent = '0';
-                    }
-                }
+        }
 
-                if (wasGenerating && !isCancelled) {
-                    const stats = this.domElements.stats;
-                    const summary = [
-                        `Scan completed:`,
-                        `• Video files: ${stats.videoFiles.textContent}`,
-                        `• Audio files: ${stats.audioFiles.textContent}`,
-                        `• Scanned directories: ${stats.directories.textContent}`,
-                        `• Maximum depth: ${stats.depthLevel.textContent}`,
-                        stats.errors.textContent > 0 ? `• Errors: ${stats.errors.textContent} (${this.state.stats.errors.skipped} skipped)` : null
-                    ].filter(Boolean).join('\n');
+        clearScanSessionData(keepLogs) {
+            this.entries = [];
+            this.resetSeenUrlCache();
 
-                    this.addLogEntry(summary, 'final');
-                }
+            if (!keepLogs) {
+                this.clearLogSessionState();
             }
-            
-            const elements = this.domElements;
-            
+        }
+
+        appendCompletionSummary() {
+            const stats = this.state.stats;
+            const summary = [
+                'Scan completed:',
+                `• Video files: ${this.formatFullStatValue(stats.files.video.total)}`,
+                `• Audio files: ${this.formatFullStatValue(stats.files.audio.total)}`,
+                `• Scanned directories: ${this.formatFullStatValue(stats.directories.total)}`,
+                `• Maximum depth: ${this.formatFullStatValue(stats.directories.depth)}`,
+                stats.errors.total > 0
+                    ? `• Errors: ${this.formatFullStatValue(stats.errors.total)} (${this.formatFullStatValue(stats.errors.skipped)} skipped)`
+                    : null
+            ]
+                .filter(Boolean)
+                .join('\n');
+
+            this.addLogEntry(summary, 'final');
+        }
+
+        resetGenerateButtonUi(elements) {
             if (elements.generateBtn) {
                 elements.generateBtn.disabled = false;
                 elements.generateBtn.innerHTML = `${this.icons.download}<span>Create Playlist</span>`;
             }
+        }
 
+        resetControlButtonsUi(elements) {
             if (elements.controls) {
                 elements.controls.style.display = 'none';
                 elements.controls.classList.remove('active');
-                
-                const pauseBtn = elements.controls.querySelector('.M3Unator-control-btn.pause');
-                const resumeBtn = elements.controls.querySelector('.M3Unator-control-btn.resume');
-                const cancelBtn = elements.controls.querySelector('.M3Unator-control-btn.cancel');
-                
+
+                const { pauseBtn, resumeBtn, cancelBtn } = this.getControlButtons(elements.controls);
                 if (pauseBtn) pauseBtn.style.display = 'none';
                 if (resumeBtn) resumeBtn.style.display = 'none';
                 if (cancelBtn) cancelBtn.style.display = 'none';
             }
+        }
 
-            if (enableToggles) {
-                if (elements.includeVideo) elements.includeVideo.disabled = false;
-                if (elements.includeAudio) elements.includeAudio.disabled = false;
-                if (elements.recursiveSearch) elements.recursiveSearch.disabled = false;
-                if (elements.currentDepth) elements.currentDepth.disabled = false;
-                if (elements.customDepth) elements.customDepth.disabled = false;
-                if (elements.maxDepth) elements.maxDepth.disabled = elements.customDepth ? !elements.customDepth.checked : true;
+        restoreToggleAvailability(elements) {
+            if (elements.includeVideo) elements.includeVideo.disabled = false;
+            if (elements.includeAudio) elements.includeAudio.disabled = false;
+            if (elements.recursiveSearch) elements.recursiveSearch.disabled = false;
+            if (elements.currentDepth) elements.currentDepth.disabled = false;
+            if (elements.customDepth) elements.customDepth.disabled = false;
+            if (elements.maxDepth)
+                elements.maxDepth.disabled = elements.customDepth ? !elements.customDepth.checked : true;
+            if (elements.dropdownButton) {
+                elements.dropdownButton.disabled = false;
+                elements.dropdownButton.setAttribute('aria-disabled', 'false');
             }
-            
-            if (uiOnly) return;
+        }
 
-            if (isCancelled) {
-                this.state.stats = JSON.parse(JSON.stringify(this.initialStats));
+        resetCancelledStatsUi(elements, keepLogs) {
+            this.state.stats = JSON.parse(JSON.stringify(this.initialStats));
 
-                if (!keepLogs) {
-                    if (elements.scanLog) {
-                        elements.scanLog.innerHTML = '';
-                        elements.scanLog.classList.add('collapsed');
-                    }
+            if (!keepLogs) {
+                if (elements.statsBar) {
+                    elements.statsBar.style.display = 'none';
+                    elements.statsBar.classList.remove('active');
+                }
 
-                    if (elements.logToggle) {
-                        elements.logToggle.classList.remove('active');
-                    }
+                if (elements.scanLog) {
+                    elements.scanLog.innerHTML = '';
+                    elements.scanLog.classList.add('collapsed');
+                }
 
-                    if (this.domElements.stats) {
-                        Object.entries(this.domElements.stats).forEach(([key, element]) => {
-                            if (element) {
-                                element.textContent = '0';
-                                const statContainer = element.closest('.M3Unator-stat');
-                                if (statContainer) {
-                                    statContainer.style.opacity = '0.5';
-                                    if (key === 'depthLevel') {
-                                        statContainer.dataset.progress = '';
-                                        statContainer.title = 'Depth Level: 0';
-                                    }
-                                }
-                            }
-                        });
-                    }
+                if (elements.logToggle) {
+                    elements.logToggle.classList.remove('active');
+                }
+
+                if (this.domElements.stats) {
+                    Object.entries(this.domElements.stats).forEach(([key, element]) => {
+                        if (element) {
+                            this.applyCounterValue(this.domElements.stats, key, 0);
+                        }
+                    });
                 }
             }
+        }
 
+        resetDepthControlsUi(elements) {
             if (elements.recursiveSearch) {
                 elements.recursiveSearch.checked = true;
                 this.state.recursiveSearch = true;
@@ -3822,123 +3919,244 @@
             }
         }
 
-        handleError(error, context = '') {
-            let userMessage = 'An error occurred';
-            let logMessage = error.message;
-            let type = 'error';
+        reset(options = {}) {
+            const {
+                isCancelled = false,
+                uiOnly = false,
+                keepLogs = false,
+                keepUI = false,
+                enableToggles = false,
+                wasGenerating = this.state.isGenerating
+            } = options;
 
-            switch (true) {
-                case error.name === 'AbortError':
-                    userMessage = 'Server not responding, operation timed out';
-                    logMessage = `Timeout: ${context}`;
-                    type = 'warning';
-                    break;
+            const wasPaused = this.state.isPaused;
 
-                case error.message.includes('HTTP error'):
-                    const status = error.message.match(/\d+/)?.[0];
-                    switch (status) {
-                        case '403':
-                            userMessage = 'Access denied to this directory';
-                            break;
-                        case '404':
-                            userMessage = 'Directory or file not found';
-                            break;
-                        case '429':
-                            userMessage = 'Too many requests, please wait a while';
-                            break;
-                        case '500':
-                        case '502':
-                        case '503':
-                            userMessage = 'Server is currently unable to respond, please try again later';
-                            break;
-                        default:
-                            userMessage = 'Error communicating with server';
-                    }
-                    logMessage = `${error.message} (${context})`;
-                    break;
+            this.state.isGenerating = false;
+            this.state.isPaused = false;
+            this.updateResetActivityState(isCancelled, wasPaused, wasGenerating);
 
-                case error.message.includes('decode'):
-                    userMessage = 'Filename or path could not be read';
-                    logMessage = `Decode error: ${context} - ${error.message}`;
-                    type = 'warning';
-                    break;
+            if (!uiOnly) {
+                this.clearScanSessionData(keepLogs);
 
-                case error.message.includes('NetworkError'):
-                    userMessage = 'Network connection error, please check your connection';
-                    logMessage = `Network error: ${context}`;
-                    break;
-
-                case error.message.includes('SecurityError'):
-                    userMessage = 'Operation not allowed due to security restrictions';
-                    logMessage = `Security error: ${context}`;
-                    break;
-
-                default:
-                    userMessage = 'Unexpected error occurred';
-                    logMessage = `${error.name}: ${error.message} (${context})`;
+                if (wasGenerating && !isCancelled) {
+                    this.appendCompletionSummary();
+                }
             }
 
+            const elements = this.domElements;
+            this.resetGenerateButtonUi(elements);
+            this.resetControlButtonsUi(elements);
+
+            if (enableToggles) {
+                this.restoreToggleAvailability(elements);
+            }
+
+            if (uiOnly) {
+                return;
+            }
+
+            if (isCancelled) {
+                this.resetCancelledStatsUi(elements, keepLogs);
+            }
+
+            this.resetDepthControlsUi(elements);
+        }
+
+        getHttpStatusFromError(error) {
+            return error.message.match(/\d+/)?.[0] || null;
+        }
+
+        getHttpErrorUserMessage(status) {
+            switch (status) {
+                case '403':
+                    return 'Access denied to this directory';
+                case '404':
+                    return 'Directory or file not found';
+                case '429':
+                    return 'Too many requests, please wait a while';
+                case '500':
+                case '502':
+                case '503':
+                    return 'Server is currently unable to respond, please try again later';
+                default:
+                    return 'Error communicating with server';
+            }
+        }
+
+        buildHttpErrorPresentation(error, context) {
+            return {
+                userMessage: this.getHttpErrorUserMessage(this.getHttpStatusFromError(error)),
+                logMessage: `${error.message} (${context})`,
+                type: 'error'
+            };
+        }
+
+        buildDecodeErrorPresentation(error, context) {
+            return {
+                userMessage: 'Filename or path could not be read',
+                logMessage: `Decode error: ${context} - ${error.message}`,
+                type: 'warning'
+            };
+        }
+
+        buildNetworkErrorPresentation(context) {
+            return {
+                userMessage: 'Network connection error, please check your connection',
+                logMessage: `Network error: ${context}`,
+                type: 'error'
+            };
+        }
+
+        buildSecurityErrorPresentation(context) {
+            return {
+                userMessage: 'Operation not allowed due to security restrictions',
+                logMessage: `Security error: ${context}`,
+                type: 'error'
+            };
+        }
+
+        buildAbortErrorPresentation(context) {
+            return {
+                userMessage: 'Server not responding, operation timed out',
+                logMessage: `Timeout: ${context}`,
+                type: 'warning'
+            };
+        }
+
+        buildDefaultErrorPresentation(error, context) {
+            return {
+                userMessage: 'Unexpected error occurred',
+                logMessage: `${error.name}: ${error.message} (${context})`,
+                type: 'error'
+            };
+        }
+
+        getErrorPresentation(error, context) {
+            if (error.name === 'AbortError') {
+                return this.buildAbortErrorPresentation(context);
+            }
+
+            if (error.message.includes('HTTP error')) {
+                return this.buildHttpErrorPresentation(error, context);
+            }
+
+            if (error.message.includes('decode')) {
+                return this.buildDecodeErrorPresentation(error, context);
+            }
+
+            if (error.message.includes('NetworkError')) {
+                return this.buildNetworkErrorPresentation(context);
+            }
+
+            if (error.message.includes('SecurityError')) {
+                return this.buildSecurityErrorPresentation(context);
+            }
+
+            return this.buildDefaultErrorPresentation(error, context);
+        }
+
+        handleError(error, context = '') {
+            const { userMessage, logMessage, type } = this.getErrorPresentation(error, context);
+
             console.error(`[${context}]`, error);
-
             this.showToast(userMessage, type);
-
             this.addLogEntry(logMessage, type);
-
             this.state.stats.errors.total++;
+        }
+
+        createOperationError(code, message, context = {}, cause = null) {
+            const error = new Error(message);
+            error.name = 'M3UnatorError';
+            error.code = code;
+            error.context = context;
+            if (cause) {
+                error.cause = cause;
+            }
+            return error;
+        }
+
+        getFetchHeaders() {
+            return {
+                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                Connection: 'keep-alive',
+                'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            };
+        }
+
+        buildFetchOptions(options) {
+            return {
+                ...options,
+                headers: this.getFetchHeaders(),
+                timeout: options.timeout || 30000,
+                signal: options.signal
+            };
+        }
+
+        createFetchFailureError(response, url, retryAttempt) {
+            return this.createOperationError('HTTP_FETCH_FAILED', `HTTP error! Status: ${response.status}`, {
+                url,
+                status: response.status,
+                retryAttempt
+            });
+        }
+
+        async parseFetchResponse(response) {
+            const text = await response.text();
+            return {
+                decodedText: text,
+                status: response.status,
+                ok: response.ok
+            };
+        }
+
+        shouldThrowFetchErrorImmediately(error) {
+            return error.name === 'AbortError' || error.message.includes('404');
+        }
+
+        async waitForRetryDelay(attemptIndex) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attemptIndex) * 1000));
         }
 
         async fetchWithRetry(url, options = {}, retries = 3) {
             let lastError;
-            for (let i = 0; i < retries; i++) {
+
+            for (let attemptIndex = 0; attemptIndex < retries; attemptIndex++) {
                 try {
-                    const response = await fetch(url, {
-                        ...options,
-                        headers: {
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                            'Accept-Language': 'en-US,en;q=0.9',
-                            'Connection': 'keep-alive',
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                        },
-                        timeout: options.timeout || 30000,
-                        signal: options.signal
-                    });
+                    const response = await fetch(url, this.buildFetchOptions(options));
 
                     if (!response.ok) {
-                        throw new Error(`HTTP error! Status: ${response.status}`);
+                        throw this.createFetchFailureError(response, url, attemptIndex + 1);
                     }
 
-                    const text = await response.text();
-                    return {
-                        decodedText: text,
-                        status: response.status,
-                        ok: response.ok
-                    };
+                    return await this.parseFetchResponse(response);
                 } catch (error) {
                     lastError = error;
-                    if (error.name === 'AbortError' || error.message.includes('404')) {
-                        throw error; // Throw these errors immediately
+
+                    if (this.shouldThrowFetchErrorImmediately(error)) {
+                        throw error;
                     }
-                    if (i < retries - 1) {
-                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
-                        continue;
+
+                    if (attemptIndex < retries - 1) {
+                        await this.waitForRetryDelay(attemptIndex);
                     }
                 }
             }
+
             throw lastError;
         }
 
-        sanitizeInput(input) {
-            if (!input || typeof input !== 'string') {
-                return '';
-            }
-
-            const sanitized = input
-                .replace(/[<>:"\/\\|?*\x00-\x1F]/g, '')
+        stripUnsafeFilenameCharacters(input) {
+            return input
+                .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
                 .trim()
                 .replace(/[\x00-\x1F\x7F]/g, '')
                 .replace(/[\u200B-\u200D\uFEFF]/g, '')
                 .replace(/[^\w\s\-_.()[\]{}#@!$%^&+=]/g, '');
+        }
 
+        finalizeSanitizedName(sanitized) {
             if (!sanitized) {
                 return 'playlist';
             }
@@ -3950,36 +4168,68 @@
             return sanitized;
         }
 
-        decodeString(str, type = 'both') {
-            if (!str) return str;
-            
-            try {
-                let decoded = str;
-                
-                if (type === 'html' || type === 'both') {
-                    decoded = decoded.replace(/&amp;/g, '&')
-                     .replace(/&lt;/g, '<')
-                     .replace(/&gt;/g, '>')
-                     .replace(/&quot;/g, '"')
-                     .replace(/&#039;/g, "'")
-                     .replace(/&#x27;/g, "'")
-                     .replace(/&#x2F;/g, "/");
+        sanitizeInput(input) {
+            if (!input || typeof input !== 'string') {
+                return '';
+            }
+
+            const sanitized = this.stripUnsafeFilenameCharacters(input);
+            return this.finalizeSanitizedName(sanitized);
         }
 
-                if (type === 'url' || type === 'both') {
-            try {
-                        decoded = decodeURIComponent(decoded);
-            } catch (e) {
-                        decoded = decoded.replace(/%([0-9A-F]{2})/gi, (match, hex) => {
-                    try {
-                        return String.fromCharCode(parseInt(hex, 16));
-                    } catch {
-                        return match;
-                    }
-                });
-                    }
+        shouldDecodeHtml(type) {
+            return type === 'html' || type === 'both';
+        }
+
+        shouldDecodeUrl(type) {
+            return type === 'url' || type === 'both';
+        }
+
+        decodeHtmlEntities(value) {
+            return value
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#039;/g, "'")
+                .replace(/&#x27;/g, "'")
+                .replace(/&#x2F;/g, '/');
+        }
+
+        fallbackDecodeUrlComponent(value) {
+            return value.replace(/%([0-9A-F]{2})/gi, (match, hex) => {
+                try {
+                    return String.fromCharCode(parseInt(hex, 16));
+                } catch {
+                    return match;
                 }
-                
+            });
+        }
+
+        decodeUrlComponentSafely(value) {
+            try {
+                return decodeURIComponent(value);
+            } catch {
+                return this.fallbackDecodeUrlComponent(value);
+            }
+        }
+
+        decodeString(str, type = 'both') {
+            if (!str) {
+                return str;
+            }
+
+            try {
+                let decoded = str;
+
+                if (this.shouldDecodeHtml(type)) {
+                    decoded = this.decodeHtmlEntities(decoded);
+                }
+
+                if (this.shouldDecodeUrl(type)) {
+                    decoded = this.decodeUrlComponentSafely(decoded);
+                }
+
                 return decoded;
             } catch (error) {
                 console.warn('Decode error:', error);
@@ -3987,38 +4237,78 @@
             }
         }
 
-        extractFileInfo(path) {
+        splitPathSegments(path) {
+            return path.split('/');
+        }
+
+        normalizePathForExtraction(path, trimTrailingSlash = false) {
+            if (!path || !trimTrailingSlash) {
+                return path;
+            }
+
+            return path.replace(/\/+$/, '');
+        }
+
+        buildOriginalPathInfo(path, trimTrailingSlash = false) {
+            const normalizedPath = this.normalizePathForExtraction(path, trimTrailingSlash);
+            const originalParts = this.splitPathSegments(normalizedPath);
+            return {
+                fileName: originalParts[originalParts.length - 1] || '',
+                dirPath: originalParts.slice(0, -1).join('/')
+            };
+        }
+
+        buildDecodedPathInfo(path, trimTrailingSlash = false) {
+            const normalizedPath = this.normalizePathForExtraction(path, trimTrailingSlash);
+            const decodedPath = this.decodeString(normalizedPath);
+            const parts = this.splitPathSegments(decodedPath);
+            const fileName = parts.pop() || '';
+            const dirPath = parts.join('/');
+
+            return {
+                fileName,
+                dirPath,
+                original: this.buildOriginalPathInfo(path, trimTrailingSlash)
+            };
+        }
+
+        buildFallbackPathInfo(path, trimTrailingSlash = false) {
+            const normalizedPath = this.normalizePathForExtraction(path, trimTrailingSlash);
+            const parts = this.splitPathSegments(normalizedPath);
+            const fileName = parts.pop() || '';
+            const dirPath = parts.join('/');
+
+            return {
+                fileName,
+                dirPath,
+                original: this.buildOriginalPathInfo(path, trimTrailingSlash)
+            };
+        }
+
+        extractPathInfo(path, trimTrailingSlash = false) {
             try {
-                const decodedPath = this.decodeString(path);
-                const parts = decodedPath.split('/');
-                const fileName = parts.pop() || '';
-                const dirPath = parts.join('/');
-                
-                return {
-                    fileName,
-                    dirPath,
-                    original: {
-                        fileName: path.split('/').pop() || '',
-                        dirPath: path.split('/').slice(0, -1).join('/')
-                    }
-                };
+                return this.buildDecodedPathInfo(path, trimTrailingSlash);
             } catch (error) {
                 this.handleError(error, `Path decode error: ${path}`);
-                const parts = path.split('/');
-                return {
-                    fileName: parts.pop() || '',
-                    dirPath: parts.join('/'),
-                    original: {
-                        fileName: parts.pop() || '',
-                        dirPath: parts.join('/')
-                    }
-                };
+                return this.buildFallbackPathInfo(path, trimTrailingSlash);
             }
         }
 
+        extractFileInfo(path) {
+            return this.extractPathInfo(path);
+        }
+
+        extractDirectoryInfo(path) {
+            return this.extractPathInfo(path, true);
+        }
+
+        joinRelativePath(...segments) {
+            return segments.filter(Boolean).join('/');
+        }
+
         normalizeUrl(url) {
-            let normalized = url.replace(/([^:]\/)\/+/g, "$1");
-            return normalized.endsWith('/') ? normalized : normalized + '/';
+            const normalized = url.replace(/([^:]\/)\/+/g, '$1');
+            return normalized.endsWith('/') ? normalized : `${normalized}/`;
         }
 
         isMediaFile(fileName, type) {
@@ -4048,222 +4338,662 @@
             return details.join(' and ');
         }
 
+        shouldStopScanning() {
+            return !this.state.isGenerating || this.entries.length >= this.state.maxEntries;
+        }
+
+        async waitForScanResume() {
+            while (this.state.isPaused && this.state.isGenerating) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+
+        buildNormalizedScanUrl(url) {
+            return this.normalizeUrl(url)
+                .replace(/#/g, '%23')
+                .replace(/\s+/g, '%20')
+                .replace(/\[/g, '%5B')
+                .replace(/\]/g, '%5D')
+                .replace(/'/g, '%27')
+                .replace(/"/g, '%22');
+        }
+
+        updateDirectoryScanStats(normalizedUrl, depth) {
+            if (depth > this.state.stats.directories.depth) {
+                this.state.stats.directories.depth = depth;
+            }
+
+            this.state.stats.directories.total++;
+            this.addLogEntry(`Scanning directory (level ${depth}): ${decodeURIComponent(normalizedUrl)}`);
+        }
+
+        shouldSkipSeenDirectory(normalizedUrl) {
+            if (!this.seenUrls.has(normalizedUrl)) {
+                return false;
+            }
+
+            this.addLogEntry(`This directory was previously scanned: ${decodeURIComponent(normalizedUrl)}`);
+            return true;
+        }
+
+        resetSeenUrlCache() {
+            this.seenUrls.clear();
+            this.seenUrlOrder = [];
+        }
+
+        trimSeenDirectoryCache() {
+            const previousCount = this.seenUrlOrder.length;
+            const keepCount = Math.floor(this.state.maxSeenUrls * 0.75);
+            const trimCount = previousCount - keepCount;
+
+            if (trimCount <= 0) {
+                return;
+            }
+
+            const trimmedUrls = this.seenUrlOrder.slice(0, trimCount);
+            this.seenUrlOrder = this.seenUrlOrder.slice(trimCount);
+
+            trimmedUrls.forEach(url => {
+                this.seenUrls.delete(url);
+            });
+
+            this.addLogEntry(`Cache cleared (${previousCount} -> ${this.seenUrlOrder.length})`, 'info');
+        }
+
+        trackSeenDirectory(normalizedUrl) {
+            this.seenUrls.add(normalizedUrl);
+            this.seenUrlOrder.push(normalizedUrl);
+
+            if (this.seenUrlOrder.length > this.state.maxSeenUrls) {
+                this.trimSeenDirectoryCache();
+            }
+        }
+
+        async fetchDirectoryResponse(normalizedUrl) {
+            try {
+                return await this.fetchWithRetry(normalizedUrl, {
+                    signal: null,
+                    timeout: 30000
+                });
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    this.addLogEntry(`Request cancelled: ${decodeURIComponent(normalizedUrl)}`, 'warning');
+                } else if (error.message.includes('404')) {
+                    this.addLogEntry(`Directory not found: ${decodeURIComponent(normalizedUrl)}`, 'warning');
+                } else {
+                    this.addLogEntry(`Connection error: ${error.message}`, 'error');
+                }
+
+                return null;
+            }
+        }
+
+        normalizeListingText(value) {
+            return typeof value === 'string' ? value.trim().toLowerCase() : '';
+        }
+
+        getListingSelectorText(doc, selector) {
+            if (!doc || typeof doc.querySelector !== 'function') {
+                return '';
+            }
+
+            const element = doc.querySelector(selector);
+            return element && typeof element.textContent === 'string' ? element.textContent : '';
+        }
+
+        hasListingSelector(doc, selector) {
+            return Boolean(doc && typeof doc.querySelector === 'function' && doc.querySelector(selector));
+        }
+
+        getListingDocumentText(doc) {
+            return this.normalizeListingText(
+                doc && doc.body && typeof doc.body.textContent === 'string' ? doc.body.textContent : ''
+            );
+        }
+
+        getListingAnchorHref(anchor) {
+            if (!anchor || typeof anchor.getAttribute !== 'function') {
+                return '';
+            }
+
+            return anchor.getAttribute('href') || '';
+        }
+
+        getListingAnchorText(anchor) {
+            return this.normalizeListingText(
+                anchor && typeof anchor.textContent === 'string' ? anchor.textContent : ''
+            );
+        }
+
+        isSortableDirectoryQueryHref(href) {
+            return /^\?(?:C=[^#]+|sort=[^#]+|order=[^#]+)/i.test(href);
+        }
+
+        isParentDirectoryListingAnchor(anchor) {
+            const href = this.getListingAnchorHref(anchor).trim();
+            const text = this.getListingAnchorText(anchor);
+
+            return (
+                href === '../' ||
+                text === '../' ||
+                text.includes('parent directory') ||
+                text.includes('[to parent directory]') ||
+                text.includes('[parentdir]')
+            );
+        }
+
+        getPreferredListingAnchorSelector(doc) {
+            if (this.hasListingSelector(doc, 'div#table-list')) {
+                return '#table-content a[href]';
+            }
+
+            if (this.hasListingSelector(doc, 'nav.breadcrumbs') && this.hasListingSelector(doc, 'table.listing')) {
+                return 'table.listing a[href]';
+            }
+
+            if (this.hasListingSelector(doc, 'table#listing')) {
+                return 'table#listing a[href]';
+            }
+
+            if (this.hasListingSelector(doc, 'table[summary="Directory Listing"]')) {
+                return 'table[summary="Directory Listing"] a[href]';
+            }
+
+            if (this.hasListingSelector(doc, 'pre')) {
+                return 'pre a[href]';
+            }
+
+            return 'a[href]';
+        }
+
+        getListingAnchorElements(doc) {
+            if (!doc || typeof doc.querySelectorAll !== 'function') {
+                return [];
+            }
+
+            const anchors = Array.from(doc.querySelectorAll(this.getPreferredListingAnchorSelector(doc)));
+            return anchors.length > 0 ? anchors : Array.from(doc.querySelectorAll('a[href]'));
+        }
+
+        getDirectoryListingTitleMarkers(doc) {
+            const candidates = [
+                doc && doc.title,
+                this.getListingSelectorText(doc, 'h1'),
+                this.getListingSelectorText(doc, 'h2')
+            ];
+
+            return candidates.reduce(
+                (markers, value) => {
+                    const normalizedValue = this.normalizeListingText(value);
+
+                    if (normalizedValue.includes('index of')) {
+                        markers.hasIndexOf = true;
+                    }
+
+                    if (normalizedValue.includes('directory listing')) {
+                        markers.hasDirectoryListing = true;
+                    }
+
+                    return markers;
+                },
+                {
+                    hasIndexOf: false,
+                    hasDirectoryListing: false
+                }
+            );
+        }
+
+        getDirectoryListingSignalCounts(
+            doc,
+            baseUrl = window.location && window.location.href ? window.location.href : ''
+        ) {
+            const counts = {
+                anchorCount: 0,
+                relativeCandidateCount: 0,
+                directoryCandidateCount: 0,
+                fileCandidateCount: 0,
+                parentLinkCount: 0,
+                sortableQueryCount: 0
+            };
+
+            const anchors = this.getListingAnchorElements(doc);
+            counts.anchorCount = anchors.length;
+
+            anchors.forEach(anchor => {
+                const href = this.getListingAnchorHref(anchor).trim();
+
+                if (this.isParentDirectoryListingAnchor(anchor)) {
+                    counts.parentLinkCount++;
+                    return;
+                }
+
+                if (this.isSortableDirectoryQueryHref(href)) {
+                    counts.sortableQueryCount++;
+                    return;
+                }
+
+                const normalizedHref = this.normalizeListingCandidateHref(href, baseUrl);
+                if (!normalizedHref) {
+                    return;
+                }
+
+                counts.relativeCandidateCount++;
+
+                if (normalizedHref.endsWith('/')) {
+                    counts.directoryCandidateCount++;
+                    return;
+                }
+
+                counts.fileCandidateCount++;
+            });
+
+            return counts;
+        }
+
+        hasGenericDirectoryListingMarkers(doc) {
+            const documentText = this.getListingDocumentText(doc);
+
+            return (
+                documentText.includes('parent directory') ||
+                documentText.includes('[to parent directory]') ||
+                documentText.includes('[parentdir]')
+            );
+        }
+
+        hasExplicitDirectoryListingSignals(titleMarkers, signalCounts, hasGenericMarkers) {
+            return (
+                titleMarkers.hasIndexOf ||
+                hasGenericMarkers ||
+                signalCounts.parentLinkCount > 0 ||
+                signalCounts.sortableQueryCount > 0
+            );
+        }
+
+        getDirectoryListingSupport(doc, baseUrl = window.location && window.location.href ? window.location.href : '') {
+            const titleMarkers = this.getDirectoryListingTitleMarkers(doc);
+            const signalCounts = this.getDirectoryListingSignalCounts(doc, baseUrl);
+            const hasGenericMarkers = this.hasGenericDirectoryListingMarkers(doc);
+            const hasLiteSpeedStructure =
+                this.hasListingSelector(doc, 'div#table-list') && signalCounts.relativeCandidateCount >= 1;
+            const hasCaddyStructure =
+                this.hasListingSelector(doc, 'nav.breadcrumbs') &&
+                this.hasListingSelector(doc, 'table.listing') &&
+                signalCounts.relativeCandidateCount >= 1;
+            const hasStructuredTable =
+                (this.hasListingSelector(doc, 'table#listing') ||
+                    this.hasListingSelector(doc, 'table[summary="Directory Listing"]')) &&
+                signalCounts.relativeCandidateCount >= 1;
+            const hasLinkStructure =
+                signalCounts.relativeCandidateCount >= 1 &&
+                (signalCounts.parentLinkCount > 0 ||
+                    signalCounts.sortableQueryCount > 0 ||
+                    signalCounts.directoryCandidateCount > 0);
+            const hasExplicitSignals = this.hasExplicitDirectoryListingSignals(
+                titleMarkers,
+                signalCounts,
+                hasGenericMarkers
+            );
+            const hasPreListing =
+                this.hasListingSelector(doc, 'pre') && signalCounts.relativeCandidateCount >= 1 && hasExplicitSignals;
+
+            let score = 0;
+
+            if (titleMarkers.hasIndexOf) {
+                score += 3;
+            }
+
+            if (titleMarkers.hasDirectoryListing) {
+                score += 2;
+            }
+
+            if (hasGenericMarkers) {
+                score += 2;
+            }
+
+            if (signalCounts.parentLinkCount > 0) {
+                score += 2;
+            }
+
+            if (signalCounts.sortableQueryCount > 0) {
+                score += 1;
+            }
+
+            if (signalCounts.relativeCandidateCount >= 2) {
+                score += 2;
+            } else if (signalCounts.relativeCandidateCount === 1) {
+                score += 1;
+            }
+
+            if (signalCounts.directoryCandidateCount > 0) {
+                score += 1;
+            }
+
+            if (signalCounts.fileCandidateCount > 0) {
+                score += 1;
+            }
+
+            if (hasPreListing) {
+                score += 2;
+            }
+
+            const isSmallBareIndex =
+                titleMarkers.hasIndexOf &&
+                signalCounts.relativeCandidateCount >= 1 &&
+                signalCounts.anchorCount === signalCounts.relativeCandidateCount &&
+                signalCounts.anchorCount <= 5;
+
+            return {
+                supported:
+                    hasLiteSpeedStructure ||
+                    hasCaddyStructure ||
+                    hasStructuredTable ||
+                    (signalCounts.relativeCandidateCount >= 1 &&
+                        ((hasExplicitSignals && score >= 6) ||
+                            (hasGenericMarkers && hasLinkStructure) ||
+                            isSmallBareIndex)),
+                score
+            };
+        }
+
+        normalizeListingCandidateHref(
+            href,
+            baseUrl = window.location && window.location.href ? window.location.href : ''
+        ) {
+            const normalizedHref = typeof href === 'string' ? href.trim() : '';
+
+            if (
+                !normalizedHref ||
+                normalizedHref === '../' ||
+                normalizedHref.startsWith('?') ||
+                normalizedHref.startsWith('#') ||
+                normalizedHref.startsWith('//') ||
+                /^[a-z]+:/i.test(normalizedHref)
+            ) {
+                return '';
+            }
+
+            if (!normalizedHref.startsWith('/') || !baseUrl) {
+                return normalizedHref;
+            }
+
+            try {
+                const directoryUrl = new URL(baseUrl);
+                const candidateUrl = new URL(normalizedHref, directoryUrl.href);
+                const directoryPath = directoryUrl.pathname.endsWith('/')
+                    ? directoryUrl.pathname
+                    : `${directoryUrl.pathname}/`;
+
+                if (candidateUrl.origin !== directoryUrl.origin || !candidateUrl.pathname.startsWith(directoryPath)) {
+                    return '';
+                }
+
+                return candidateUrl.pathname.slice(directoryPath.length);
+            } catch (error) {
+                return '';
+            }
+        }
+
+        parseDirectoryDocument(html) {
+            const parser = this.domParser || new DOMParser();
+            return parser.parseFromString(html, 'text/html');
+        }
+
+        extractCandidateHrefsFromAnchors(
+            anchors,
+            baseUrl = window.location && window.location.href ? window.location.href : ''
+        ) {
+            const hrefs = [];
+            const seenHrefs = new Set();
+
+            anchors.forEach(anchor => {
+                if (this.isParentDirectoryListingAnchor(anchor)) {
+                    return;
+                }
+
+                const href = this.normalizeListingCandidateHref(this.getListingAnchorHref(anchor), baseUrl);
+                if (!href || seenHrefs.has(href)) {
+                    return;
+                }
+
+                seenHrefs.add(href);
+                hrefs.push(href);
+            });
+
+            return hrefs;
+        }
+
+        extractLiteSpeedHrefs(doc, baseUrl = window.location && window.location.href ? window.location.href : '') {
+            return this.extractCandidateHrefsFromAnchors(
+                Array.from(doc.querySelectorAll('#table-content a[href]')),
+                baseUrl
+            );
+        }
+
+        extractGenericListingHrefs(doc, baseUrl = window.location && window.location.href ? window.location.href : '') {
+            return this.extractCandidateHrefsFromAnchors(this.getListingAnchorElements(doc), baseUrl);
+        }
+
+        extractDirectoryHrefsFromDocument(
+            doc,
+            baseUrl = window.location && window.location.href ? window.location.href : ''
+        ) {
+            const listingSupport = this.getDirectoryListingSupport(doc, baseUrl);
+            if (!listingSupport.supported) {
+                return [];
+            }
+
+            if (this.hasListingSelector(doc, 'div#table-list')) {
+                return this.extractLiteSpeedHrefs(doc, baseUrl);
+            }
+
+            return this.extractGenericListingHrefs(doc, baseUrl);
+        }
+
+        extractDirectoryHrefs(html, baseUrl = window.location && window.location.href ? window.location.href : '') {
+            return this.extractDirectoryHrefsFromDocument(this.parseDirectoryDocument(html), baseUrl);
+        }
+
+        splitDirectoryAndFileHrefs(hrefs) {
+            const directories = [];
+            const files = [];
+
+            for (const href of hrefs) {
+                if (href.endsWith('/')) {
+                    directories.push(href);
+                } else {
+                    files.push(href);
+                }
+            }
+
+            return { directories, files };
+        }
+
+        createBatchProgress(total) {
+            return {
+                total,
+                processed: 0,
+                success: 0,
+                errors: 0
+            };
+        }
+
+        updateBatchProgress(batchProgress) {
+            batchProgress.processed++;
+
+            if (batchProgress.processed % 20 === 0 || batchProgress.processed === batchProgress.total) {
+                const progress = Math.floor((batchProgress.processed / batchProgress.total) * 100);
+                this.addLogEntry(
+                    `Batch Processing: ${progress}% (${batchProgress.processed}/${batchProgress.total}, ` +
+                        `Success: ${batchProgress.success}, Error: ${batchProgress.errors})`,
+                    'info'
+                );
+            }
+        }
+
+        processFileHref(href, normalizedUrl, currentPath, processedUrls, batchProgress) {
+            try {
+                const fullUrl = new URL(href, normalizedUrl).toString();
+                if (processedUrls.has(fullUrl)) {
+                    return;
+                }
+
+                processedUrls.add(fullUrl);
+
+                const { fileName, dirPath } = this.extractFileInfo(href);
+                const fullPath = this.joinRelativePath(currentPath, dirPath, fileName);
+
+                this.state.stats.totalFiles = (this.state.stats.totalFiles || 0) + 1;
+
+                const mediaType = this.isMediaFileOptimized(fileName);
+                const shouldIncludeMedia =
+                    mediaType &&
+                    ((mediaType === 'video' && this.state.includeVideo) ||
+                        (mediaType === 'audio' && this.state.includeAudio));
+
+                if (shouldIncludeMedia) {
+                    if (mediaType === 'video') {
+                        this.updateFileStats('video');
+                    } else {
+                        this.updateFileStats('audio');
+                    }
+
+                    this.entries.push({
+                        title: fullPath || fileName,
+                        url: fullUrl
+                    });
+                    batchProgress.success++;
+                }
+            } catch (error) {
+                console.error('URL processing error:', error);
+                this.state.stats.errors.total++;
+                batchProgress.errors++;
+            } finally {
+                this.updateBatchProgress(batchProgress);
+            }
+        }
+
+        processFileBatch(files, startIndex, batchSize, normalizedUrl, currentPath) {
+            const endIndex = Math.min(startIndex + batchSize, files.length);
+            const batchProgress = this.createBatchProgress(endIndex - startIndex);
+            const processedUrls = new Set();
+
+            for (let fileIndex = startIndex; fileIndex < endIndex; fileIndex++) {
+                this.processFileHref(files[fileIndex], normalizedUrl, currentPath, processedUrls, batchProgress);
+            }
+        }
+
+        shouldYieldAfterFileBatch(processedCount, totalFiles) {
+            return processedCount < totalFiles && processedCount % 500 === 0;
+        }
+
+        async yieldToScanLoop() {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        async processFileHrefs(files, normalizedUrl, currentPath) {
+            const batchSize = 100;
+
+            for (let index = 0; index < files.length; index += batchSize) {
+                await this.waitForScanResume();
+
+                if (this.shouldStopScanning()) {
+                    break;
+                }
+
+                this.processFileBatch(files, index, batchSize, normalizedUrl, currentPath);
+
+                const processedCount = Math.min(index + batchSize, files.length);
+                if (this.shouldYieldAfterFileBatch(processedCount, files.length)) {
+                    await this.yieldToScanLoop();
+                }
+            }
+        }
+
+        shouldScanSubdirectories(depth) {
+            return this.state.maxDepth === -1 || (this.state.maxDepth > 0 && depth < this.state.maxDepth);
+        }
+
+        queueSubdirectoryScan(dir, normalizedUrl, currentPath, depth, activeRequests) {
+            try {
+                const fullUrl = new URL(dir, normalizedUrl).toString();
+                const { fileName, dirPath } = this.extractDirectoryInfo(dir);
+                const fullPath = this.joinRelativePath(currentPath, dirPath, fileName);
+
+                let trackedPromise;
+                trackedPromise = this.scanDirectory(fullUrl, fullPath, depth + 1).finally(() => {
+                    activeRequests.delete(trackedPromise);
+                });
+
+                activeRequests.add(trackedPromise);
+                this.addLogEntry(`Entering subdirectory: ${fullPath || this.decodeString(dir).replace(/\/+$/, '')}`);
+            } catch (error) {
+                console.error('Directory scanning error:', error);
+                this.state.stats.errors.total++;
+            }
+        }
+
+        async scanSubdirectoryQueue(directories, normalizedUrl, currentPath, depth) {
+            const parallelLimit = 15;
+            const activeRequests = new Set();
+            let queueIndex = 0;
+
+            while (queueIndex < directories.length || activeRequests.size > 0) {
+                while (queueIndex < directories.length && activeRequests.size < parallelLimit) {
+                    const dir = directories[queueIndex];
+                    queueIndex++;
+                    this.queueSubdirectoryScan(dir, normalizedUrl, currentPath, depth, activeRequests);
+                }
+
+                if (activeRequests.size > 0) {
+                    await Promise.race(activeRequests);
+                }
+            }
+        }
+
         async scanDirectory(url, currentPath = '', depth = 0) {
             try {
                 this.resetCurrentStats();
 
-                if (!this.state.isGenerating || this.entries.length >= this.state.maxEntries) {
+                if (this.shouldStopScanning()) {
                     return this.entries;
                 }
 
-                while (this.state.isPaused && this.state.isGenerating) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
+                await this.waitForScanResume();
 
-                // Encode special characters properly
-                const normalizedUrl = this.normalizeUrl(url).replace(/#/g, '%23')
-                    .replace(/\s+/g, '%20')
-                    .replace(/\[/g, '%5B')
-                    .replace(/\]/g, '%5D')
-                    .replace(/'/g, '%27')
-                    .replace(/"/g, '%22');
+                const normalizedUrl = this.buildNormalizedScanUrl(url);
+                this.updateDirectoryScanStats(normalizedUrl, depth);
 
-                if (depth > this.state.stats.directories.depth) {
-                    this.state.stats.directories.depth = depth;
-                }
-
-                this.state.stats.directories.total++;
-
-                this.addLogEntry(`Scanning directory (level ${depth}): ${decodeURIComponent(normalizedUrl)}`);
-
-                if (this.seenUrls.has(normalizedUrl)) {
-                    this.addLogEntry(`This directory was previously scanned: ${decodeURIComponent(normalizedUrl)}`);
+                if (this.shouldSkipSeenDirectory(normalizedUrl)) {
                     return this.entries;
                 }
 
-                this.seenUrls.add(normalizedUrl);
-                if (this.seenUrls.size > this.state.maxSeenUrls) {
-                    const keepCount = Math.floor(this.state.maxSeenUrls * 0.75);
-                    const urlsArray = Array.from(this.seenUrls);
-                    const keepUrls = urlsArray.slice(-keepCount);
-                    this.seenUrls = new Set(keepUrls);
-                    this.addLogEntry(
-                        `Cache cleared (${urlsArray.length} -> ${keepUrls.length})`,
-                        'info'
-                    );
-                }
+                this.trackSeenDirectory(normalizedUrl);
 
-                let response;
-                try {
-                    response = await this.fetchWithRetry(normalizedUrl, {
-                        signal: null, // Remove cancel signal
-                        timeout: 30000 // 30 second timeout
-                    });
-                } catch (error) {
-                    if (error.name === 'AbortError') {
-                        this.addLogEntry(`Request cancelled: ${decodeURIComponent(normalizedUrl)}`, 'warning');
-                    } else if (error.message.includes('404')) {
-                        this.addLogEntry(`Directory not found: ${decodeURIComponent(normalizedUrl)}`, 'warning');
-                    } else {
-                        this.addLogEntry(`Connection error: ${error.message}`, 'error');
-                    }
+                const response = await this.fetchDirectoryResponse(normalizedUrl);
+                if (!response) {
                     return this.entries;
                 }
 
-                const html = response.decodedText;
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                
-                const isLiteSpeed = doc.querySelector('div#table-list') !== null;
-                let hrefs = [];
-                
-                if (isLiteSpeed) {
-                    const rows = doc.querySelectorAll('#table-content tr');
-                    rows.forEach(row => {
-                        const linkElement = row.querySelector('a');
-                        if (linkElement && !linkElement.textContent.includes('Parent Directory')) {
-                            const href = linkElement.getAttribute('href');
-                            if (href) hrefs.push(href);
-                        }
-                    });
-                } else {
-                    const hrefRegex = /href="([^"]+)"/gi;
-                    const matches = html.matchAll(hrefRegex);
-                    hrefs = Array.from(matches, m => m[1]).filter(href =>
-                        href &&
-                        !href.startsWith('?') &&
-                        !href.startsWith('/') &&
-                        href !== '../' &&
-                        !href.includes('Parent Directory')
-                    );
+                const doc = this.parseDirectoryDocument(response.decodedText);
+                const listingSupport = this.getDirectoryListingSupport(doc, normalizedUrl);
+                if (!listingSupport.supported) {
+                    this.addLogEntry(`Skipped non-listing page: ${decodeURIComponent(normalizedUrl)}`, 'warning');
+                    return this.entries;
                 }
 
-                // Separate directories and files
-                const directories = [];
-                const files = [];
+                const hrefs = this.hasListingSelector(doc, 'div#table-list')
+                    ? this.extractLiteSpeedHrefs(doc, normalizedUrl)
+                    : this.extractGenericListingHrefs(doc, normalizedUrl);
+                const { directories, files } = this.splitDirectoryAndFileHrefs(hrefs);
 
-                for (const href of hrefs) {
-                    if (href.endsWith('/')) {
-                        directories.push(href);
-                    } else {
-                        files.push(href);
-                    }
-                }
+                await this.processFileHrefs(files, normalizedUrl, currentPath);
 
-                // Process files in batches
-                const batchSize = 100; // Increased from 50 to 100
-                for (let i = 0; i < files.length; i += batchSize) {
-                    if (!this.state.isGenerating || this.entries.length >= this.state.maxEntries) break;
-
-                    const batch = files.slice(i, i + batchSize);
-                    const batchProgress = {
-                        total: batch.length,
-                        processed: 0,
-                        success: 0,
-                        errors: 0
-                    };
-
-                    // Use Set for better performance
-                    const processedUrls = new Set();
-
-                    await Promise.all(batch.map(async href => {
-                        try {
-                            // Skip if URL was previously processed
-                            const fullUrl = new URL(href, normalizedUrl).toString();
-                            if (processedUrls.has(fullUrl)) return;
-                            processedUrls.add(fullUrl);
-
-                            const decodedHref = this.decodeString(href);
-                            const { fileName } = this.extractFileInfo(decodedHref);
-                            const fullPath = currentPath ? `${currentPath}/${fileName}` : fileName;
-
-                            this.state.stats.totalFiles = (this.state.stats.totalFiles || 0) + 1;
-
-                            // Check file type using Map
-                            const mediaType = this.isMediaFileOptimized(fileName);
-                            
-                            if (mediaType && ((mediaType === 'video' && this.state.includeVideo) || 
-                                            (mediaType === 'audio' && this.state.includeAudio))) {
-                                if (mediaType === 'video') {
-                                    this.updateFileStats('video');
-                                } else {
-                                    this.updateFileStats('audio');
-                                }
-
-                                this.entries.push({
-                                    title: fullPath,
-                                    url: fullUrl
-                                });
-                                batchProgress.success++;
-                            }
-                        } catch (error) {
-                            console.error('URL processing error:', error);
-                            this.state.stats.errors.total++;
-                            batchProgress.errors++;
-                        } finally {
-                            batchProgress.processed++;
-                            
-                            // Update progress every 20 operations (instead of 10)
-                            if (batchProgress.processed % 20 === 0 || batchProgress.processed === batchProgress.total) {
-                                const progress = Math.floor((batchProgress.processed / batchProgress.total) * 100);
-                                this.addLogEntry(
-                                    `Batch Processing: ${progress}% (${batchProgress.processed}/${batchProgress.total}, ` +
-                                    `Success: ${batchProgress.success}, Error: ${batchProgress.errors})`,
-                                    'info'
-                                );
-                            }
-                        }
-                    }));
-
-                    // Increase interval for memory cleanup
-                    if (i > 0 && i % (batchSize * 20) === 0) {
-                        global.gc && global.gc();
-                    }
-                }
-
-                // Scan directories in parallel
-                const shouldScanSubdir = 
-                    this.state.maxDepth === -1 ||
-                    (this.state.maxDepth > 0 && depth < this.state.maxDepth);
-
-                if (shouldScanSubdir && directories.length > 0) {
-                    const parallelLimit = 15; // Parallel limit increased to 15
-                    const queue = [...directories];
-                    const activeRequests = new Set();
-                    
-                    while (queue.length > 0 || activeRequests.size > 0) {
-                        // Start new request if there are items in queue and active request limit is not reached
-                        while (queue.length > 0 && activeRequests.size < parallelLimit) {
-                            const dir = queue.shift();
-                            try {
-                                const decodedDir = this.decodeString(dir);
-                                const fullUrl = new URL(decodedDir, normalizedUrl).toString();
-                                const { fileName } = this.extractFileInfo(decodedDir);
-                                const fullPath = currentPath ? `${currentPath}/${fileName}` : fileName;
-
-                                const promise = this.scanDirectory(fullUrl, fullPath, depth + 1)
-                                    .finally(() => {
-                                        activeRequests.delete(promise);
-                                    });
-
-                                activeRequests.add(promise);
-                                this.addLogEntry(`Entering subdirectory: ${fullPath}`);
-                            } catch (error) {
-                                console.error('Directory scanning error:', error);
-                                this.state.stats.errors.total++;
-                            }
-                        }
-
-                        // Wait for one of the active requests to complete
-                        if (activeRequests.size > 0) {
-                            await Promise.race(activeRequests);
-                        }
-                    }
+                if (this.shouldScanSubdirectories(depth) && directories.length > 0) {
+                    await this.scanSubdirectoryQueue(directories, normalizedUrl, currentPath, depth);
                 }
 
                 this.updateCounter(this.state.stats.totalFiles);
                 return this.entries;
-
             } catch (error) {
                 this.state.stats.errors.total++;
                 this.addLogEntry(`Scan error (${currentPath || url}): ${error.message}`, 'error');
@@ -4271,94 +5001,280 @@
             }
         }
 
-        createPlaylist(entries) {
-            let content = '#EXTM3U\n';
-            
-            const decodedEntries = entries.map(entry => {
-                try {
-                    let title = this.decodeString(entry.title);
-                    const depth = (title.match(/\//g) || []).length;
-                    const isVideo = this.videoFormats.some(ext => title.toLowerCase().endsWith(ext));
-                    const isAudio = this.audioFormats.some(ext => title.toLowerCase().endsWith(ext));
-                    
-                    return {
-                        ...entry,
-                        decodedTitle: title,
-                        depth: depth,
-                        isVideo: isVideo,
-                        isAudio: isAudio
-                    };
-                } catch (error) {
-                    return {
-                        ...entry,
-                        decodedTitle: entry.title,
-                        depth: 0,
-                        isVideo: false,
-                        isAudio: false
-                    };
+        countPathDepth(path) {
+            let depth = 0;
+
+            for (const character of path) {
+                if (character === '/') {
+                    depth++;
+                }
+            }
+
+            return depth;
+        }
+
+        buildDecodedPlaylistEntry(entry) {
+            try {
+                const title = this.decodeString(entry.title);
+                const mediaType = this.isMediaFileOptimized(title);
+
+                return {
+                    ...entry,
+                    decodedTitle: title,
+                    depth: this.countPathDepth(title),
+                    isVideo: mediaType === 'video',
+                    isAudio: mediaType === 'audio'
+                };
+            } catch (error) {
+                return {
+                    ...entry,
+                    decodedTitle: entry.title,
+                    depth: 0,
+                    isVideo: false,
+                    isAudio: false
+                };
+            }
+        }
+
+        comparePlaylistEntries(a, b) {
+            if (a.depth !== b.depth) {
+                return a.depth - b.depth;
+            }
+
+            const aStartsWithNumber = /^\d/.test(a.decodedTitle);
+            const bStartsWithNumber = /^\d/.test(b.decodedTitle);
+
+            if (aStartsWithNumber !== bStartsWithNumber) {
+                return aStartsWithNumber ? -1 : 1;
+            }
+
+            return a.decodedTitle.localeCompare(b.decodedTitle, undefined, this.sortOptions);
+        }
+
+        partitionPlaylistEntries(decodedEntries) {
+            const videoEntries = [];
+            const audioEntries = [];
+
+            decodedEntries.forEach(entry => {
+                if (entry.isVideo) {
+                    videoEntries.push(entry);
+                    return;
+                }
+
+                if (entry.isAudio) {
+                    audioEntries.push(entry);
                 }
             });
 
-            const videoEntries = decodedEntries.filter(entry => entry.isVideo);
-            const audioEntries = decodedEntries.filter(entry => entry.isAudio);
+            return { videoEntries, audioEntries };
+        }
 
-            const apacheSort = (a, b) => {
-                if (a.depth !== b.depth) {
-                    return a.depth - b.depth;
-                }
+        sortPlaylistEntries(decodedEntries) {
+            const { videoEntries, audioEntries } = this.partitionPlaylistEntries(decodedEntries);
+            const sortedVideoEntries = videoEntries.sort((a, b) => this.comparePlaylistEntries(a, b));
+            const sortedAudioEntries = audioEntries.sort((a, b) => this.comparePlaylistEntries(a, b));
 
-                const aStartsWithNumber = /^\d/.test(a.decodedTitle);
-                const bStartsWithNumber = /^\d/.test(b.decodedTitle);
-                
-                if (aStartsWithNumber !== bStartsWithNumber) {
-                    return aStartsWithNumber ? -1 : 1;
-                }
+            return sortedVideoEntries.concat(sortedAudioEntries);
+        }
 
-                return a.decodedTitle.localeCompare(b.decodedTitle, undefined, {
-                    numeric: true,
-                    sensitivity: 'base'
-                });
+        serializePlaylistEntries(entries) {
+            let serializedEntries = '';
+
+            entries.forEach(entry => {
+                serializedEntries += `#EXTINF:-1,${entry.decodedTitle}\n${entry.url}\n`;
+            });
+
+            return serializedEntries;
+        }
+
+        normalizePlaylistFormat(format = this.state.selectedFormat) {
+            return format === 'm3u8' ? 'm3u8' : 'm3u';
+        }
+
+        getPlaylistFormatConfig(format = this.state.selectedFormat) {
+            const normalizedFormat = this.normalizePlaylistFormat(format);
+
+            if (normalizedFormat === 'm3u8') {
+                return {
+                    format: 'm3u8',
+                    extension: 'm3u8',
+                    mimeType: 'application/vnd.apple.mpegurl;charset=utf-8',
+                    prependUtf8Bom: true
+                };
+            }
+
+            return {
+                format: 'm3u',
+                extension: 'm3u',
+                mimeType: 'audio/x-mpegurl;charset=utf-8',
+                prependUtf8Bom: false
             };
+        }
 
-            const sortedVideoEntries = videoEntries.sort(apacheSort);
-            const sortedAudioEntries = audioEntries.sort(apacheSort);
+        createPlaylist(entries) {
+            const decodedEntries = entries.map(entry => this.buildDecodedPlaylistEntry(entry));
+            const sortedEntries = this.sortPlaylistEntries(decodedEntries);
+            return `#EXTM3U\n${this.serializePlaylistEntries(sortedEntries)}`;
+        }
 
-            const sortedEntries = [...sortedVideoEntries, ...sortedAudioEntries];
+        buildPlaylistDownloadPayload(entries, format = this.state.selectedFormat) {
+            const formatConfig = this.getPlaylistFormatConfig(format);
+            const playlistContent = this.createPlaylist(entries);
 
-            sortedEntries.forEach(entry => {
-                content += `#EXTINF:-1,${entry.decodedTitle}\n${entry.url}\n`;
-            });
+            return {
+                ...formatConfig,
+                content: formatConfig.prependUtf8Bom ? `\uFEFF${playlistContent}` : playlistContent
+            };
+        }
 
-            return content;
+        shouldSkipLogEntry(type) {
+            return (this.state.isPaused || !this.state.isGenerating) && type !== 'final';
+        }
+
+        decodeUrlInLogMessage(url) {
+            try {
+                return decodeURIComponent(url);
+            } catch (error) {
+                return url;
+            }
+        }
+
+        decodeLogMessage(message) {
+            if (!message.includes('http')) {
+                return message;
+            }
+
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            return message.replace(urlRegex, url => this.decodeUrlInLogMessage(url));
+        }
+
+        shouldRefreshLogUi(type = '') {
+            const totalLogs = this.logCache.stats.totalLogs;
+            return totalLogs <= 5 || totalLogs % 10 === 0 || type === 'final';
+        }
+
+        syncLogCounter() {
+            const logCounter = this.domElements.logCounter;
+            if (logCounter) {
+                const totalLogs = String(this.logCache.stats.totalLogs);
+                if (logCounter.textContent !== totalLogs) {
+                    logCounter.textContent = totalLogs;
+                }
+            }
         }
 
         addLogEntry(message, type = '') {
-            if ((this.state.isPaused || !this.state.isGenerating) && type !== 'final') {
+            if (this.shouldSkipLogEntry(type)) {
                 return;
             }
 
             let decodedMessage = message;
             try {
-                if (message.includes('http')) {
-                    const urlRegex = /(https?:\/\/[^\s]+)/g;
-                    decodedMessage = message.replace(urlRegex, (url) => {
-                        try {
-                            return decodeURIComponent(url);
-                        } catch (e) {
-                            return url;
-                        }
-                    });
-                }
+                decodedMessage = this.decodeLogMessage(message);
             } catch (error) {
                 console.warn('Decode error:', error);
             }
 
-            // Add only to cache
             this.logCache.add(decodedMessage, type);
+            this.syncLogCounter();
 
-            // Update UI every 10 logs
-            if (this.logCache.stats.totalLogs % 10 === 0) {
+            if (this.shouldRefreshLogUi(type)) {
                 this.updateLogUI();
+            }
+        }
+
+        getRecentLogs() {
+            return this.logCache.logs.slice(-50);
+        }
+
+        wasLogScrolledToBottom(scanLog) {
+            return Math.abs(scanLog.scrollHeight - scanLog.clientHeight - scanLog.scrollTop) < 50;
+        }
+
+        createLogEntryNode(log) {
+            const div = document.createElement('div');
+            div.className = `M3Unator-log-entry ${log.type}`;
+            div.dataset.logSequence = String(log.sequence || '');
+
+            const time = document.createElement('span');
+            time.className = 'M3Unator-log-time';
+            time.textContent = log.timestamp;
+
+            const content = document.createElement('span');
+            content.className = 'M3Unator-log-content';
+            content.textContent = log.message;
+
+            div.appendChild(time);
+            div.appendChild(content);
+            return div;
+        }
+
+        buildLogFragment(logs) {
+            const fragment = document.createDocumentFragment();
+            logs.forEach(log => {
+                fragment.appendChild(this.createLogEntryNode(log));
+            });
+            return fragment;
+        }
+
+        getRenderedLogSequence(node) {
+            if (!node || !node.dataset) {
+                return null;
+            }
+
+            const parsedSequence = Number(node.dataset.logSequence);
+            return Number.isFinite(parsedSequence) ? parsedSequence : null;
+        }
+
+        shouldIncrementallyRenderLogs(scanLog, recentLogs) {
+            if (!scanLog.firstElementChild || !scanLog.lastElementChild || recentLogs.length === 0) {
+                return false;
+            }
+
+            if (scanLog.childElementCount > recentLogs.length) {
+                return false;
+            }
+
+            return this.getRenderedLogSequence(scanLog.firstElementChild) === recentLogs[0].sequence;
+        }
+
+        appendRecentLogs(scanLog, recentLogs) {
+            const lastRenderedSequence = this.getRenderedLogSequence(scanLog.lastElementChild);
+            const missingLogs = recentLogs.filter(log => log.sequence > lastRenderedSequence);
+
+            if (missingLogs.length === 0) {
+                return;
+            }
+
+            scanLog.appendChild(this.buildLogFragment(missingLogs));
+
+            while (scanLog.childElementCount > recentLogs.length) {
+                scanLog.removeChild(scanLog.firstElementChild);
+            }
+        }
+
+        replaceRecentLogs(scanLog, recentLogs) {
+            scanLog.innerHTML = '';
+            scanLog.appendChild(this.buildLogFragment(recentLogs));
+        }
+
+        renderLogEntries(scanLog) {
+            const recentLogs = this.getRecentLogs();
+            const wasAtBottom = this.wasLogScrolledToBottom(scanLog);
+
+            if (recentLogs.length === 0) {
+                scanLog.innerHTML = '';
+                return;
+            }
+
+            if (this.shouldIncrementallyRenderLogs(scanLog, recentLogs)) {
+                this.appendRecentLogs(scanLog, recentLogs);
+            } else {
+                this.replaceRecentLogs(scanLog, recentLogs);
+            }
+
+            if (wasAtBottom) {
+                scanLog.scrollTop = scanLog.scrollHeight;
             }
         }
 
@@ -4366,73 +5282,125 @@
             const scanLog = this.domElements.scanLog;
             if (!scanLog) return;
 
-            // Add throttle for performance
             if (this._updateLogUITimeout) {
                 clearTimeout(this._updateLogUITimeout);
             }
 
             this._updateLogUITimeout = setTimeout(() => {
                 requestAnimationFrame(() => {
-                    const wasAtBottom = Math.abs(scanLog.scrollHeight - scanLog.clientHeight - scanLog.scrollTop) < 50;
-                    
-                    // Use fragment to minimize DOM manipulation
-                    const fragment = document.createDocumentFragment();
-                    
-                    // Show last 50 logs (instead of 100)
-                    const recentLogs = this.logCache.logs.slice(-50);
-                    
-                    recentLogs.forEach(log => {
-                        const div = document.createElement('div');
-                        div.className = `M3Unator-log-entry ${log.type}`;
-                        div.innerHTML = `
-                            <span class="M3Unator-log-time">${log.timestamp}</span>
-                            <span class="M3Unator-log-content">${log.message}</span>
-                        `;
-                        fragment.appendChild(div);
-                    });
-
-                    scanLog.innerHTML = '';
-                    scanLog.appendChild(fragment);
-
-                    if (wasAtBottom) {
-                        scanLog.scrollTop = scanLog.scrollHeight;
-                    }
+                    this.renderLogEntries(scanLog);
                 });
-            }, 100); // 100ms throttle
+            }, 100);
         }
 
-        generateScanReport() {
+        getReportLogIcon(type) {
+            switch (type) {
+                case 'error':
+                    return '❌';
+                case 'warning':
+                    return '⚠️';
+                case 'success':
+                    return '✅';
+                default:
+                    return 'ℹ️';
+            }
+        }
+
+        buildScanReportLines() {
             const stats = this.state.stats;
             const logCache = this.logCache;
-            
-            const summary = [
-                `📊 Scan Summary`,
-                `───────────────`,
+
+            return [
+                '📊 Scan Summary',
+                '───────────────',
                 `📁 Total Files: ${stats.totalFiles}`,
                 `🎥 Video Files: ${stats.files.video.total}`,
                 `🎵 Audio Files: ${stats.files.audio.total}`,
                 `📂 Directories: ${stats.directories.total}`,
                 `↕️ Maximum Depth: ${stats.directories.depth}`,
-                stats.errors.total > 0 ? 
-                    `⚠️ Errors: ${stats.errors.total} (${stats.errors.skipped} skipped)` : 
-                    null,
-                ``,
-                `📝 Log Statistics`,
-                `───────────────`,
+                stats.errors.total > 0 ? `⚠️ Errors: ${stats.errors.total} (${stats.errors.skipped} skipped)` : null,
+                '',
+                '📝 Log Statistics',
+                '───────────────',
                 `Total Logs: ${logCache.stats.totalLogs}`,
-                logCache.stats.skippedLogs > 0 ? 
-                    `Skipped Logs: ${logCache.stats.skippedLogs}` :
-                    null,
-                ``,
+                logCache.stats.skippedLogs > 0 ? `Skipped Logs: ${logCache.stats.skippedLogs}` : null,
+                '',
                 `🔍 Last ${logCache.maxSize} Log Entries`,
-                `───────────────`,
-                ...logCache.logs.map(log => 
-                    `[${log.timestamp}] ${log.type === 'error' ? '❌' : 
-                                       log.type === 'warning' ? '⚠️' : 
-                                       log.type === 'success' ? '✅' : 'ℹ️'} ${log.message}`)
-            ].filter(Boolean).join('\n');
+                '───────────────',
+                ...logCache.logs.map(log => `[${log.timestamp}] ${this.getReportLogIcon(log.type)} ${log.message}`)
+            ].filter(Boolean);
+        }
 
-            return summary;
+        generateScanReport() {
+            return this.buildScanReportLines().join('\n');
+        }
+
+        formatFullStatValue(value) {
+            const numericValue = Number(value);
+            if (!Number.isFinite(numericValue)) {
+                return String(value);
+            }
+
+            return String(numericValue);
+        }
+
+        updateStatLabel(statContainer, value) {
+            const label = statContainer.dataset.statLabel || 'Value';
+            const title = `${label}: ${this.formatFullStatValue(value)}`;
+
+            statContainer.title = title;
+            statContainer.setAttribute('aria-label', title);
+        }
+
+        buildCounterUpdates(count) {
+            return {
+                totalFiles: count,
+                videoFiles: this.state.stats.files.video.total,
+                audioFiles: this.state.stats.files.audio.total,
+                directories: this.state.stats.directories.total,
+                depthLevel: this.state.stats.directories.depth,
+                errors: this.state.stats.errors.total
+            };
+        }
+
+        applyDepthLevelState(statContainer, value) {
+            const maxDepth = this.state.maxDepth || 0;
+            const label = statContainer.dataset.statLabel || 'Depth Level';
+            if (maxDepth > 0) {
+                const progress = (value / maxDepth) * 100;
+                statContainer.dataset.progress =
+                    progress >= 100 ? 'high' : progress >= 75 ? 'medium' : progress >= 50 ? 'low' : '';
+                statContainer.title = `${label}: ${this.formatFullStatValue(value)}/${this.formatFullStatValue(maxDepth)}`;
+            } else {
+                statContainer.dataset.progress = '';
+                statContainer.title = `${label}: ${this.formatFullStatValue(value)}`;
+            }
+
+            statContainer.setAttribute('aria-label', statContainer.title);
+        }
+
+        applyCounterValue(elements, key, value) {
+            const element = elements[key];
+            if (!element) {
+                return;
+            }
+
+            element.dataset.rawValue = String(value);
+            element.textContent = this.formatFullStatValue(value);
+
+            const statContainer = element.closest('.M3Unator-stat');
+            if (!statContainer) {
+                return;
+            }
+
+            statContainer.style.opacity = value > 0 ? '1' : '0.5';
+
+            if (key === 'depthLevel') {
+                this.applyDepthLevelState(statContainer, value);
+                return;
+            }
+
+            this.updateStatLabel(statContainer, value);
         }
 
         updateCounter(count) {
@@ -4440,86 +5408,43 @@
                 return;
             }
 
-            const stats = this.state.stats;
-            const elements = this.domElements.stats;
-            const statsBar = this.domElements.statsBar;
+            this.domElements.statsBar.style.display = 'block';
 
-            statsBar.style.display = 'block';
-            
-            const updates = {
-                'totalFiles': count,
-                'videoFiles': stats.files.video.total,
-                'audioFiles': stats.files.audio.total,
-                'directories': stats.directories.total,
-                'depthLevel': stats.directories.depth,
-                'errors': stats.errors.total
-            };
-
+            const updates = this.buildCounterUpdates(count);
             Object.entries(updates).forEach(([key, value]) => {
-                const element = elements[key];
-                if (element) {
-                    element.textContent = value;
-                    
-                    const statContainer = element.closest('.M3Unator-stat');
-                    if (statContainer) {
-                        statContainer.style.opacity = value > 0 ? '1' : '0.5';
-                        
-                        if (key === 'depthLevel') {
-                            const maxDepth = this.state.maxDepth || 0;
-                            if (maxDepth > 0) {
-                                const progress = (value / maxDepth) * 100;
-                                statContainer.dataset.progress = 
-                                    progress >= 100 ? 'high' :
-                                    progress >= 75 ? 'medium' :
-                                    progress >= 50 ? 'low' : '';
-                                
-                                statContainer.title = `Depth Level: ${value}/${maxDepth}`;
-                            } else {
-                                statContainer.dataset.progress = '';
-                                statContainer.title = `Depth Level: ${value}`;
-                            }
-                        }
-                    }
-                }
+                this.applyCounterValue(this.domElements.stats, key, value);
             });
         }
 
-        // Add new method for file type checking
+        getNormalizedFileExtension(fileName) {
+            const normalizedName = typeof fileName === 'string' ? fileName.toLowerCase() : '';
+            const extensionSeparatorIndex = normalizedName.lastIndexOf('.');
+            return extensionSeparatorIndex === -1 ? '' : normalizedName.slice(extensionSeparatorIndex + 1);
+        }
+
         isMediaFileOptimized(fileName) {
-            const extension = fileName.toLowerCase().split('.').pop();
-            return this.extensionMap.get(extension);
+            return this.extensionMap.get(this.getNormalizedFileExtension(fileName));
         }
     }
 
     const generator = new PlaylistGenerator();
     generator.init();
 
+    const container = generator.domElements.container;
+    const { infoLink, infoClose, infoModal } = generator.domElements;
+
     // Event listeners for info modal
-    document.querySelector('.info-link').addEventListener('click', () => {
-        document.querySelector('.info-modal').style.display = 'block';
-        document.body.classList.add('modal-open');
+    infoLink.addEventListener('click', () => {
+        generator.openInfoModal();
     });
 
-    document.querySelector('.info-close').addEventListener('click', () => {
-        document.querySelector('.info-modal').style.display = 'none';
-        document.body.classList.remove('modal-open');
+    infoClose.addEventListener('click', () => {
+        generator.closeInfoModal({ restoreFocus: true });
     });
 
-    window.addEventListener('click', (event) => {
-        const modal = document.querySelector('.info-modal');
-        if (event.target === modal) {
-            modal.style.display = 'none';
-            document.body.classList.remove('modal-open');
-        }
-    });
-
-    // Event listener for playlist name input
-    generator.domElements.playlistInput.addEventListener('input', (e) => {
-        const dropdown = e.target.parentElement.querySelector('.M3Unator-dropdown');
-        if (e.target.value.trim()) {
-            dropdown.style.display = 'block';
-        } else {
-            dropdown.style.display = 'none';
+    window.addEventListener('click', event => {
+        if (event.target === infoModal) {
+            generator.closeInfoModal({ restoreFocus: true });
         }
     });
 })();
