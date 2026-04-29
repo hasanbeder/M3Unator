@@ -2092,7 +2092,7 @@
 
     GM_addStyle(`
         /* Info Modal Styles */
-        .info-modal {
+        .M3Unator-info-modal {
             display: none;
             position: fixed;
             inset: 0;
@@ -2101,7 +2101,7 @@
             z-index: 10000;
         }
 
-        .info-modal-content {
+        .M3Unator-info-modal-content {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -2117,7 +2117,7 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
-        .info-modal-header {
+        .M3Unator-info-modal-header {
             padding: 1rem 1.5rem;
             border-bottom: 1px solid #45475a;
             display: flex;
@@ -2125,45 +2125,45 @@
             justify-content: space-between;
         }
 
-        .info-modal-header h3 {
+        .M3Unator-info-modal-header h3 {
             margin: 0;
             color: #f5c2e7;
             font-size: 1.25rem;
         }
 
-        .info-modal-body {
+        .M3Unator-info-modal-body {
             padding: 2rem;
             line-height: 1.55;
         }
 
-        .info-modal-body p {
+        .M3Unator-info-modal-body p {
             margin: 0 0 1rem;
         }
 
-        .info-modal-body h4 {
+        .M3Unator-info-modal-body h4 {
             margin: 1.5rem 0 0.75rem;
             color: #f5c2e7;
         }
 
-        .info-modal-body ul {
+        .M3Unator-info-modal-body ul {
             margin: 0.75rem 0;
             padding-left: 1.5rem;
         }
 
-        .info-modal-body li {
+        .M3Unator-info-modal-body li {
             margin: 0.5rem 0;
         }
 
-        .info-modal-body a {
+        .M3Unator-info-modal-body a {
             color: #89b4fa;
             text-decoration: none;
         }
 
-        .info-modal-body a:hover {
+        .M3Unator-info-modal-body a:hover {
             text-decoration: underline;
         }
 
-        .info-close {
+        .M3Unator-info-close {
             background: transparent;
             border: none;
             padding: 0;
@@ -2726,13 +2726,13 @@
                             <button type="button" class="M3Unator-close" aria-label="Close M3Unator">${this.icons.close}</button>
                         </div>
                     </div>
-                    <div class="info-modal">
-                        <div class="info-modal-content">
-                            <div class="info-modal-header">
+                    <div class="M3Unator-info-modal">
+                        <div class="M3Unator-info-modal-content">
+                            <div class="M3Unator-info-modal-header">
                                 <h3>${this.getAboutDialogTitle()}</h3>
-                                <button type="button" class="info-close" aria-label="Close About">${this.icons.close}</button>
+                                <button type="button" class="M3Unator-info-close" aria-label="Close About">${this.icons.close}</button>
                             </div>
-                            <div class="info-modal-body">
+                            <div class="M3Unator-info-modal-body">
                                 <p><strong>🎬 Web Directory Playlist Creator</strong></p>
                                 <p>📂 Scan supported directory listings for video and audio files, then export clean <code>.m3u</code> or <code>.m3u8</code> playlists.</p>
                                 <h4>Features</h4>
@@ -3006,8 +3006,8 @@
                 header: container.querySelector('.M3Unator-header'),
                 closeBtn: container.querySelector('.M3Unator-close'),
                 infoLink: container.querySelector('.info-link'),
-                infoClose: container.querySelector('.info-close'),
-                infoModal: container.querySelector('.info-modal'),
+                infoClose: container.querySelector('.M3Unator-info-close'),
+                infoModal: container.querySelector('.M3Unator-info-modal'),
                 generateBtn: container.querySelector('#generateBtn'),
                 playlistInput: container.querySelector('#playlistName'),
                 includeVideo: container.querySelector('#includeVideo'),
@@ -3276,7 +3276,7 @@
             handle.addEventListener('touchstart', dragStart, { passive: false });
 
             window.addEventListener('resize', () => {
-                if (!isDragging) {
+                if (!isDragging && element.isConnected) {
                     centerWindow();
                 }
             });
@@ -3314,7 +3314,10 @@
             const toast = document.createElement('div');
             toast.className = `M3Unator-toast ${type}`;
             const iconSpan = document.createElement('span');
-            iconSpan.innerHTML = this.icons[type] || this.icons.info;
+            const safeIcon = Object.prototype.hasOwnProperty.call(this.icons, type)
+                ? this.icons[type]
+                : this.icons.info;
+            iconSpan.innerHTML = safeIcon;
             const messageSpan = document.createElement('span');
             messageSpan.textContent = message;
             toast.appendChild(iconSpan);
@@ -3655,6 +3658,7 @@
 
         handleResumeScan(pauseBtn, resumeBtn, generateBtn) {
             this.state.isPaused = false;
+            this.resolveAllWaitingScanners();
             this.updateActivityIndicator('active');
             resumeBtn.style.display = 'none';
             pauseBtn.style.display = 'flex';
@@ -3667,13 +3671,18 @@
             const wasGenerating = this.state.isGenerating;
             this.state.isGenerating = false;
             this.state.isPaused = false;
+            this.resolveAllWaitingScanners();
             this.abortScanSession();
             this.updateActivityIndicator('cancelled');
 
             if (!wasGenerating) return;
+            if (this._isResetting) return;
 
             const settleAndReset = () => {
+                if (this._isResetting) return;
+                this._isResetting = true;
                 this.reset({ isCancelled: true, enableToggles: true });
+                this._isResetting = false;
                 this.showToast('Scan cancelled', 'warning');
             };
 
@@ -3808,6 +3817,8 @@
                 this.updateActivityIndicator('completed');
                 this.reset({ keepLogs: true, enableToggles: true });
             } catch (error) {
+                if (this._isResetting) return;
+                this._isResetting = true;
                 this.state.isGenerating = false;
                 this.state.isPaused = false;
                 this.updateActivityIndicator('cancelled');
@@ -3815,6 +3826,7 @@
                 this.addLogEntry(`Error: ${error.message}`, 'error');
                 this.showToast('Error creating playlist', 'error');
                 this.reset({ isCancelled: true });
+                this._isResetting = false;
             }
         }
 
@@ -4323,7 +4335,7 @@
             const retryCount = this.getFetchRetryCount(retries);
             const timeoutMs = this.getFetchTimeoutMs(options);
 
-            for (let attemptIndex = 0; attemptIndex < retryCount; attemptIndex++) {
+            for (let attemptIndex = 0; attemptIndex <= retryCount; attemptIndex++) {
                 const linkedAbort = this.createLinkedAbortController(options.signal, timeoutMs);
 
                 try {
@@ -4351,7 +4363,7 @@
                         throw error;
                     }
 
-                    if (attemptIndex < retryCount - 1) {
+                    if (attemptIndex < retryCount) {
                         await this.waitForRetryDelay(attemptIndex, options.signal);
                     }
                 } finally {
@@ -4412,13 +4424,17 @@
         }
 
         fallbackDecodeUrlComponent(value) {
-            return value.replace(/%([0-9A-F]{2})/gi, (match, hex) => {
-                try {
-                    return String.fromCharCode(parseInt(hex, 16));
-                } catch {
-                    return match;
-                }
-            });
+            try {
+                return decodeURIComponent(value.replace(/%(?![0-9A-F]{2})/gi, '%25'));
+            } catch {
+                return value.replace(/%([0-9A-F]{2})/gi, (match, hex) => {
+                    try {
+                        return String.fromCharCode(parseInt(hex, 16));
+                    } catch {
+                        return match;
+                    }
+                });
+            }
         }
 
         decodeUrlComponentSafely(value) {
@@ -4527,13 +4543,6 @@
             return normalized.endsWith('/') ? normalized : `${normalized}/`;
         }
 
-        isMediaFile(fileName, type) {
-            const lowerFileName = fileName.toLowerCase();
-            return type === 'video'
-                ? this.videoFormats.some(ext => lowerFileName.endsWith(ext))
-                : this.audioFormats.some(ext => lowerFileName.endsWith(ext));
-        }
-
         resetCurrentStats() {
             this.state.stats.files.video.current = 0;
             this.state.stats.files.audio.current = 0;
@@ -4558,9 +4567,36 @@
             return !this.state.isGenerating || this.isScanAborted() || this.entries.length >= this.state.maxEntries;
         }
 
+        tryReserveEntrySlot() {
+            if (this.entries.length >= this.state.maxEntries) {
+                return false;
+            }
+            this._reservedEntryCount = (this._reservedEntryCount || 0) + 1;
+            return true;
+        }
+
+        commitReservedEntry(entry) {
+            this.entries.push(entry);
+            this._reservedEntryCount = (this._reservedEntryCount || 0) - 1;
+        }
+
         async waitForScanResume() {
-            while (this.state.isPaused && this.state.isGenerating) {
-                await new Promise(resolve => setTimeout(resolve, 100));
+            if (!this.state.isPaused || !this.state.isGenerating) {
+                return;
+            }
+
+            return new Promise(resolve => {
+                if (!this._resumeResolvers) {
+                    this._resumeResolvers = [];
+                }
+                this._resumeResolvers.push(resolve);
+            });
+        }
+
+        resolveAllWaitingScanners() {
+            if (this._resumeResolvers) {
+                this._resumeResolvers.forEach(resolve => resolve());
+                this._resumeResolvers = [];
             }
         }
 
@@ -5164,7 +5200,7 @@
                         (mediaType === 'audio' && this.state.includeAudio));
 
                 if (shouldIncludeMedia) {
-                    if (this.entries.length >= this.state.maxEntries) {
+                    if (!this.tryReserveEntrySlot()) {
                         return;
                     }
 
@@ -5174,7 +5210,7 @@
                         this.updateFileStats('audio');
                     }
 
-                    this.entries.push({
+                    this.commitReservedEntry({
                         title: fullPath || fileName,
                         url: fullUrl
                     });
@@ -5343,24 +5379,6 @@
             };
         }
 
-        queueSubdirectoryScan(dir, normalizedUrl, currentPath, depth, activeRequests) {
-            try {
-                const fullUrl = new URL(dir, normalizedUrl).toString();
-                const { fileName, dirPath } = this.extractDirectoryInfo(dir);
-                const fullPath = this.joinRelativePath(currentPath, dirPath, fileName);
-
-                const trackedPromise = this.scanDirectory(fullUrl, fullPath, depth + 1).finally(() => {
-                    activeRequests.delete(trackedPromise);
-                });
-
-                activeRequests.add(trackedPromise);
-                this.addLogEntry(`Entering subdirectory: ${fullPath || this.decodeString(dir).replace(/\/+$/, '')}`);
-            } catch (error) {
-                console.error('Directory scanning error:', error);
-                this.state.stats.errors.total++;
-            }
-        }
-
         queueSubdirectoryTask(dir, parentTask, pendingTasks) {
             try {
                 const fullUrl = new URL(dir, parentTask.normalizedUrl).toString();
@@ -5371,24 +5389,6 @@
             } catch (error) {
                 console.error('Directory scanning error:', error);
                 this.state.stats.errors.total++;
-            }
-        }
-
-        async scanSubdirectoryQueue(directories, normalizedUrl, currentPath, depth) {
-            const activeRequests = new Set();
-            let queueIndex = 0;
-            const concurrency = this.getCurrentScanConcurrency();
-
-            while (queueIndex < directories.length || activeRequests.size > 0) {
-                while (queueIndex < directories.length && activeRequests.size < concurrency) {
-                    const dir = directories[queueIndex];
-                    queueIndex++;
-                    this.queueSubdirectoryScan(dir, normalizedUrl, currentPath, depth, activeRequests);
-                }
-
-                if (activeRequests.size > 0) {
-                    await Promise.race(activeRequests);
-                }
             }
         }
 
@@ -5643,7 +5643,7 @@
                 return message;
             }
 
-            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const urlRegex = /(https?:\/\/[^\s.,;:)\]>}]+)/g;
             return message.replace(urlRegex, url => this.decodeUrlInLogMessage(url));
         }
 
