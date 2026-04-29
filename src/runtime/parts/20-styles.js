@@ -227,6 +227,22 @@
             box-shadow: 0 0 0 2px rgba(245, 194, 231, 0.1);
         }
 
+        .M3Unator-popup button:focus-visible,
+        .M3Unator-popup label.M3Unator-inline-switch:focus-visible,
+        .M3Unator-social a:focus-visible,
+        .M3Unator-social button:focus-visible,
+        .M3Unator-launcher:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.4);
+        }
+
+        .M3Unator-popup button:focus:not(:focus-visible),
+        .M3Unator-social a:focus:not(:focus-visible),
+        .M3Unator-social button:focus:not(:focus-visible),
+        .M3Unator-launcher:focus:not(:focus-visible) {
+            outline: none;
+        }
+
         .M3Unator-input::placeholder {
             color: #6c7086;
             opacity: 1;
@@ -309,6 +325,131 @@
             padding: 0.75rem;
             border-radius: 12px;
             backdrop-filter: blur(8px);
+            position: relative;
+        }
+
+        .M3Unator-group-title-trigger {
+            flex: 0 0 auto;
+            align-self: center;
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #6c7086;
+            cursor: pointer;
+            display: none;
+            place-items: center;
+            padding: 0;
+            margin-left: 4px;
+            transition: color 0.18s ease, background 0.18s ease;
+            z-index: 10;
+        }
+
+        .M3Unator-group-title-trigger.is-visible {
+            display: grid;
+        }
+
+        .M3Unator-group-title-trigger svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .M3Unator-group-title-trigger:hover {
+            color: #cdd6f4;
+            background: rgba(205, 214, 244, 0.08);
+        }
+
+        .M3Unator-group-title-trigger.active {
+            color: #89d8eb;
+            background: rgba(137, 220, 235, 0.12);
+        }
+
+        .M3Unator-group-title-inline {
+            flex: 0 0 auto;
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-width 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+            margin-left: 0;
+        }
+
+        .M3Unator-group-title-inline.is-visible {
+            max-width: 180px;
+            opacity: 1;
+            margin-left: 6px;
+        }
+
+        .M3Unator-group-title-inline .M3Unator-group-title-input {
+            height: 36px;
+            min-height: 36px;
+            font-size: 0.82rem;
+        }
+
+        .M3Unator-generate-row {
+            position: relative;
+        }
+
+        .M3Unator-generate-row .M3Unator-button {
+            padding-right: 60px;
+        }
+
+        .M3Unator-aggressive-control {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            width: 42px;
+            height: 24px;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .M3Unator-aggressive-control input[type="checkbox"] {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .M3Unator-aggressive-switch {
+            position: relative;
+            width: 38px;
+            height: 22px;
+            border-radius: 999px;
+            background: rgba(30, 30, 46, 0.42);
+            border: 1px solid rgba(30, 30, 46, 0.34);
+            box-shadow: 0 0 0 1px rgba(17, 17, 27, 0.12) inset;
+            transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .M3Unator-aggressive-knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            background: #cdd6f4;
+            box-shadow: 0 2px 5px rgba(17, 17, 27, 0.35);
+            transition: transform 0.18s ease, background 0.18s ease;
+        }
+
+        .M3Unator-aggressive-control:hover .M3Unator-aggressive-switch,
+        .M3Unator-aggressive-control:focus-within .M3Unator-aggressive-switch {
+            box-shadow: 0 0 0 2px rgba(30, 30, 46, 0.18), 0 0 12px rgba(17, 17, 27, 0.18);
+        }
+
+        .M3Unator-aggressive-control input[type="checkbox"]:checked + .M3Unator-aggressive-switch {
+            background: rgba(250, 179, 135, 0.38);
+            border-color: rgba(250, 179, 135, 0.92);
+            box-shadow: 0 0 12px rgba(250, 179, 135, 0.24);
+        }
+
+        .M3Unator-aggressive-control input[type="checkbox"]:checked + .M3Unator-aggressive-switch .M3Unator-aggressive-knob {
+            transform: translateX(16px);
+            background: #fff4dc;
         }
 
         .M3Unator-button {
@@ -905,100 +1046,9 @@
             font-family: inherit;
         }
 
-        .M3Unator-advanced-settings {
-            margin-top: 1rem;
-            padding: 1rem;
-            background: rgba(30, 30, 46, 0.5);
-            border: 1px solid #313244;
-            border-radius: 8px;
-            display: none;
-        }
-
-        .M3Unator-advanced-settings.active {
-            display: block;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .M3Unator-advanced-toggle {
-            width: 100%;
-            padding: 0.75rem;
-            background: #1e1e2e;
-            border: 1px solid #313244;
-            border-radius: 8px;
-            color: #cdd6f4;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.2s ease;
-        }
-
-        .M3Unator-advanced-toggle:hover {
-            background: #313244;
-        }
-
-        .M3Unator-advanced-toggle svg {
-            width: 16px;
-            height: 16px;
-            transition: transform 0.2s ease;
-        }
-
-        .M3Unator-advanced-toggle.active svg {
-            transform: rotate(180deg);
-        }
-
-        .M3Unator-depth-slider {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 4px;
-            border-radius: 2px;
-            background: #313244;
-            outline: none;
-            margin: 1rem 0;
-        }
-
-        .M3Unator-depth-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #cba6f7;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .M3Unator-depth-slider::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-        }
-
-        .M3Unator-depth-value {
-            text-align: center;
-            font-size: 0.875rem;
-            color: #cdd6f4;
-            margin-top: 0.5rem;
-        }
-
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
-        }
-
-        .M3Unator-depth-settings {
-            margin-top: 0.75rem;
-            margin-left: 1.75rem;
-            padding: 0.75rem;
-            background: rgba(30, 30, 46, 0.3);
-            border-left: 2px solid #cba6f7;
-            border-radius: 0 8px 8px 0;
-            display: none;
-            animation: slideDown 0.3s ease;
-        }
-
-        .M3Unator-depth-settings.active {
-            display: block;
         }
 
         .M3Unator-depth-input {
@@ -1058,11 +1108,6 @@
             background: rgba(203, 166, 247, 0.1);
             border-color: #cba6f7;
             color: #cba6f7;
-        }
-
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         .M3Unator-stats-bar {

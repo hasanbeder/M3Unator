@@ -51,12 +51,38 @@
         }
 
         restoreToggleAvailability(elements) {
-            if (elements.includeVideo) elements.includeVideo.disabled = false;
-            if (elements.includeAudio) elements.includeAudio.disabled = false;
-            if (elements.recursiveSearch) elements.recursiveSearch.disabled = false;
-            if (elements.currentDepth) elements.currentDepth.disabled = false;
-            if (elements.customDepth) elements.customDepth.disabled = false;
-            if (elements.maxDepth) elements.maxDepth.disabled = elements.customDepth ? !elements.customDepth.checked : true;
+            if (elements.includeVideo) {
+                elements.includeVideo.disabled = false;
+            }
+
+            if (elements.includeAudio) {
+                elements.includeAudio.disabled = false;
+            }
+
+            if (elements.recursiveSearch) {
+                elements.recursiveSearch.disabled = false;
+            }
+
+            if (elements.aggressiveMode) {
+                elements.aggressiveMode.disabled = false;
+            }
+
+            if (elements.groupTitle) {
+                const isPanelOpen = elements.groupTitlePanel && elements.groupTitlePanel.classList.contains('is-visible');
+                elements.groupTitle.disabled = !isPanelOpen;
+            }
+
+            if (elements.currentDepth) {
+                elements.currentDepth.disabled = false;
+            }
+
+            if (elements.customDepth) {
+                elements.customDepth.disabled = false;
+            }
+
+            if (elements.maxDepth) {
+                elements.maxDepth.disabled = elements.customDepth ? !elements.customDepth.checked : true;
+            }
             if (elements.dropdownButton) {
                 elements.dropdownButton.disabled = false;
                 elements.dropdownButton.setAttribute('aria-disabled', 'false');
@@ -121,7 +147,6 @@
                 isCancelled = false,
                 uiOnly = false,
                 keepLogs = false,
-                keepUI = false,
                 enableToggles = false,
                 wasGenerating = this.state.isGenerating
             } = options;

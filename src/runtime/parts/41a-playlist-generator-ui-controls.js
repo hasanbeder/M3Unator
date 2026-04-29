@@ -67,13 +67,32 @@
             };
         }
 
-        initializePopupSelections(includeVideo, includeAudio, recursiveSearch) {
+        initializePopupSelections(includeVideo, includeAudio, recursiveSearch, aggressiveMode) {
             recursiveSearch.checked = true;
             includeVideo.checked = true;
             includeAudio.checked = true;
+            if (aggressiveMode) {
+                aggressiveMode.checked = false;
+            }
             this.state.recursiveSearch = true;
             this.state.includeVideo = true;
             this.state.includeAudio = true;
+            this.state.aggressiveMode = false;
+            this.state.groupTitle = '';
+
+            const { groupTitle, groupTitleToggle, groupTitlePanel } = this.domElements;
+            if (groupTitle) {
+                groupTitle.disabled = true;
+                groupTitle.value = '';
+            }
+            if (groupTitleToggle) {
+                groupTitleToggle.classList.remove('active');
+                groupTitleToggle.setAttribute('aria-expanded', 'false');
+            }
+            if (groupTitlePanel) {
+                groupTitlePanel.classList.remove('is-visible');
+                groupTitlePanel.setAttribute('aria-hidden', 'true');
+            }
         }
 
         syncDropdownVisibility(playlistInput, dropdown, dropdownButton) {
@@ -86,6 +105,26 @@
                 dropdown.classList.remove('active');
                 if (dropdownButton) {
                     dropdownButton.setAttribute('aria-expanded', 'false');
+                }
+            }
+
+            const groupTitleToggle = this.domElements.groupTitleToggle;
+            if (groupTitleToggle) {
+                groupTitleToggle.classList.toggle('is-visible', isVisible);
+                if (!isVisible) {
+                    const groupTitlePanel = this.domElements.groupTitlePanel;
+                    const groupTitle = this.domElements.groupTitle;
+                    if (groupTitlePanel && groupTitlePanel.classList.contains('is-visible')) {
+                        groupTitlePanel.classList.remove('is-visible');
+                        groupTitlePanel.setAttribute('aria-hidden', 'true');
+                    }
+                    if (groupTitle) {
+                        groupTitle.value = '';
+                        groupTitle.disabled = true;
+                        this.state.groupTitle = '';
+                    }
+                    groupTitleToggle.classList.remove('active');
+                    groupTitleToggle.setAttribute('aria-expanded', 'false');
                 }
             }
         }
@@ -171,6 +210,65 @@
                     event.target.checked ?
                     'Audio files will be included' :
                     'Audio files will not be included',
+                    'info'
+                );
+            });
+        }
+
+        bindAggressiveModeHandler(aggressiveMode) {
+            if (!aggressiveMode) {
+                return;
+            }
+
+            aggressiveMode.addEventListener('change', (event) => {
+                this.state.aggressiveMode = event.target.checked;
+                this.addLogEntry(
+                    event.target.checked ?
+                    'Aggressive mode enabled: higher parallel scanning with adaptive throttling' :
+                    'Aggressive mode disabled: standard parallel scanning restored',
+                    event.target.checked ? 'warning' : 'info'
+                );
+            });
+        }
+
+        bindGroupTitleHandler(groupTitle) {
+            if (!groupTitle) {
+                return;
+            }
+
+            const syncGroupTitle = () => {
+                this.state.groupTitle = groupTitle.value.trim();
+            };
+
+            groupTitle.addEventListener('input', syncGroupTitle);
+            groupTitle.addEventListener('change', syncGroupTitle);
+            syncGroupTitle();
+        }
+
+        bindGroupTitleToggleHandler(groupTitleToggle, groupTitlePanel, groupTitle) {
+            if (!groupTitleToggle || !groupTitlePanel) {
+                return;
+            }
+
+            groupTitleToggle.addEventListener('click', () => {
+                const isOpen = groupTitlePanel.classList.toggle('is-visible');
+                groupTitlePanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+                groupTitleToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                groupTitleToggle.classList.toggle('active', isOpen);
+
+                if (isOpen && groupTitle) {
+                    groupTitle.disabled = false;
+                    groupTitle.focus();
+                } else if (!isOpen && groupTitle) {
+                    groupTitle.value = '';
+                    groupTitle.disabled = true;
+                    this.state.groupTitle = '';
+                }
+
+                this.addLogEntry(
+                    isOpen
+                        ? 'Group title enabled for single-category exports'
+                        : 'Group title disabled',
                     'info'
                 );
             });
@@ -276,6 +374,7 @@
         handleCancelScan() {
             this.state.isGenerating = false;
             this.state.isPaused = false;
+            this.abortScanSession();
             this.updateActivityIndicator('cancelled');
 
             setTimeout(() => {
@@ -286,11 +385,7 @@
 
         clearLogSessionState() {
             this.logCount = 0;
-
-            if (this._updateLogUITimeout) {
-                clearTimeout(this._updateLogUITimeout);
-                this._updateLogUITimeout = null;
-            }
+            this.cancelScheduledLogUiUpdate();
 
             if (this.logCache) {
                 this.logCache.clear();
@@ -325,6 +420,12 @@
             this.domElements.includeVideo.disabled = true;
             this.domElements.includeAudio.disabled = true;
             this.domElements.recursiveSearch.disabled = true;
+            if (this.domElements.aggressiveMode) {
+                this.domElements.aggressiveMode.disabled = true;
+            }
+            if (this.domElements.groupTitle) {
+                this.domElements.groupTitle.disabled = true;
+            }
             this.domElements.currentDepth.disabled = true;
             this.domElements.customDepth.disabled = true;
             this.domElements.maxDepth.disabled = true;
@@ -372,6 +473,7 @@
 
             try {
                 this.resetScanSessionState();
+                this.startScanSession();
                 this.prepareScanRunUi(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn);
 
                 const entries = await this.scanDirectory(window.location.href, '', 0);
@@ -397,7 +499,7 @@
 
                 this.showToast(`Playlist "${fileName}" created successfully`, 'success');
                 this.updateActivityIndicator('completed');
-                this.reset({ keepLogs: true, keepUI: true, enableToggles: true });
+                this.reset({ keepLogs: true, enableToggles: true });
             } catch (error) {
                 this.state.isGenerating = false;
                 this.state.isPaused = false;
@@ -441,6 +543,8 @@
                 includeVideo,
                 includeAudio,
                 recursiveSearch,
+                aggressiveMode,
+                groupTitle,
                 controls,
                 dropdown,
                 currentDepth,
@@ -455,8 +559,11 @@
 
             this.bindPlaylistInputHandlers(playlistInput, dropdown, dropdownButton);
             this.bindDropdownHandlers(dropdown, dropdownButton, dropdownItems);
-            this.initializePopupSelections(includeVideo, includeAudio, recursiveSearch);
+            this.initializePopupSelections(includeVideo, includeAudio, recursiveSearch, aggressiveMode);
             this.bindMediaToggleHandlers(includeVideo, includeAudio);
+            this.bindAggressiveModeHandler(aggressiveMode);
+            this.bindGroupTitleHandler(groupTitle);
+            this.bindGroupTitleToggleHandler(this.domElements.groupTitleToggle, this.domElements.groupTitlePanel, groupTitle);
             this.initializeDepthControls(currentDepth, customDepth, maxDepth, depthControls);
             this.bindDepthControlHandlers(recursiveSearch, currentDepth, customDepth, maxDepth, depthControls);
             this.bindScanControlHandlers(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn, playlistInput);

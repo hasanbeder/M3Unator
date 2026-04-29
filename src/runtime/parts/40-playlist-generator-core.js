@@ -105,11 +105,25 @@
                 selectedFormat: 'm3u',
                 includeVideo: false,
                 includeAudio: false,
+                aggressiveMode: false,
+                groupTitle: '',
                 maxEntries: 1000000,
-                timeoutMs: 5000,
+                timeoutMs: 12000,
                 retryCount: 2,
                 maxDepth: 0,
                 maxSeenUrls: 5000,
+                concurrency: {
+                    min: 2,
+                    start: 4,
+                    max: 12,
+                    hardCap: 16
+                },
+                aggressiveConcurrency: {
+                    min: 3,
+                    start: 6,
+                    max: 20,
+                    hardCap: 24
+                },
                 stats: { ...initialStats }
             };
         }
@@ -118,8 +132,68 @@
             this.entries = [];
             this.seenUrls = new Set();
             this.seenUrlOrder = [];
+            this.scanAbortController = null;
+            this.scanPerformance = this.createInitialScanPerformance();
             this.toastQueue = [];
             this.isProcessingToast = false;
+        }
+
+        createInitialScanPerformance() {
+            const concurrencyConfig = this.getActiveConcurrencyConfig
+                ? this.getActiveConcurrencyConfig()
+                : this.state.concurrency;
+
+            return {
+                currentConcurrency: concurrencyConfig
+                    ? concurrencyConfig.start
+                    : 4,
+                requestSamples: [],
+                sampleWindow: 20,
+                lastIncreaseAt: 0,
+                increaseCooldownMs: 2500,
+                lastEventLoopLag: 0,
+                rateLimitedUntil: 0
+            };
+        }
+
+        getActiveConcurrencyConfig() {
+            return this.state.aggressiveMode
+                ? this.state.aggressiveConcurrency
+                : this.state.concurrency;
+        }
+
+        startScanSession() {
+            this.scanAbortController = typeof AbortController === 'function'
+                ? new AbortController()
+                : null;
+
+            this.configureScanSignalMaxListeners();
+            this.scanPerformance = this.createInitialScanPerformance();
+        }
+
+        configureScanSignalMaxListeners() {
+            const signal = this.getScanAbortSignal();
+            if (!signal || typeof signal.setMaxListeners !== 'function') {
+                return;
+            }
+
+            const config = this.getActiveConcurrencyConfig();
+            signal.setMaxListeners(config.hardCap + 5);
+        }
+
+        abortScanSession() {
+            if (this.scanAbortController && !this.scanAbortController.signal.aborted) {
+                this.scanAbortController.abort();
+            }
+        }
+
+        getScanAbortSignal() {
+            return this.scanAbortController ? this.scanAbortController.signal : null;
+        }
+
+        isScanAborted() {
+            const signal = this.getScanAbortSignal();
+            return Boolean(signal && signal.aborted);
         }
 
         createIcons() {
@@ -194,16 +268,30 @@
                     <polyline points="2 17 12 22 22 17"/>
                     <polyline points="2 12 12 17 22 12"/>
                 </svg>`,
+                aggressive: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+                </svg>`,
+                tv: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="6" width="18" height="12" rx="2"/>
+                    <path d="M8 20h8"/>
+                    <path d="M12 18v2"/>
+                    <path d="M8 10h8"/>
+                    <path d="M8 14h5"/>
+                </svg>`,
                 logToggle: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>`,
+                tag: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                    <line x1="7" y1="7" x2="7.01" y2="7"/>
                 </svg>`
             };
         }
 
         createTemplates() {
             return {
-                toggleButton: (id, title, icon, checked = false) => `
-                    <div class="M3Unator-toggle-container">
+                toggleButton: (id, title, icon, checked = false, className = '') => `
+                    <div class="M3Unator-toggle-container ${className}">
                         <label title="${title}" aria-label="${title}">
                             <input type="checkbox" id="${id}" ${checked ? 'checked' : ''}>
                             <span aria-hidden="true">${icon}</span>
@@ -307,7 +395,8 @@
                         props.id,
                         props.title,
                         props.icon,
-                        props.checked
+                        props.checked,
+                        props.className || ''
                     );
                 case 'control':
                     return this.templates.controlButton(

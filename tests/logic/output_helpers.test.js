@@ -268,6 +268,25 @@ test('buildPlaylistDownloadPayload keeps .m3u plain and emits UTF-8 BOM for .m3u
     assert.equal(m3u8Payload.content.slice(1), m3uPayload.content);
 });
 
+test('createPlaylist adds one escaped IPTV group title when provided', () => {
+    const generator = createGenerator();
+    generator.state.groupTitle = 'VOD "Mixed"\nFolder';
+
+    const playlist = generator.createPlaylist([
+        {
+            title: 'Movie%201.mp4',
+            url: 'https://example.com/Movie%201.mp4'
+        }
+    ]);
+
+    assert.equal(
+        playlist,
+        '#EXTM3U\n' +
+            '#EXTINF:-1 group-title="VOD \\"Mixed\\" Folder",Movie 1.mp4\n' +
+            'https://example.com/Movie%201.mp4\n'
+    );
+});
+
 test('getPlaylistFormatConfig falls back to .m3u for unknown format values', () => {
     const generator = createGenerator();
     const formatConfig = toPlainObject(generator.getPlaylistFormatConfig('unknown'));
@@ -342,6 +361,9 @@ test('prepareScanRunUi locks the playlist format selector until controls are res
         includeVideo: { disabled: false },
         includeAudio: { disabled: false },
         recursiveSearch: { disabled: false },
+        aggressiveMode: { disabled: false },
+        groupTitle: { disabled: false },
+        groupTitlePanel: { classList: createMockClassList(['is-visible']) },
         currentDepth: { disabled: false },
         customDepth: { disabled: false },
         maxDepth: { disabled: false },
@@ -362,6 +384,7 @@ test('prepareScanRunUi locks the playlist format selector until controls are res
     );
 
     assert.equal(dropdownButton.disabled, true);
+    assert.equal(generator.domElements.groupTitle.disabled, true);
     assert.equal(dropdownButton['aria-disabled'], 'true');
     assert.equal(dropdownButton['aria-expanded'], 'false');
     assert.equal(dropdown.classList.contains('active'), false);
@@ -369,6 +392,8 @@ test('prepareScanRunUi locks the playlist format selector until controls are res
     generator.restoreToggleAvailability(generator.domElements);
 
     assert.equal(dropdownButton.disabled, false);
+    assert.equal(generator.domElements.aggressiveMode.disabled, false);
+    assert.equal(generator.domElements.groupTitle.disabled, false);
     assert.equal(dropdownButton['aria-disabled'], 'false');
 });
 
@@ -458,6 +483,23 @@ test('processFileHrefs yields between large file batches instead of forcing garb
 
     assert.equal(processedCount, 550);
     assert.equal(yieldCount, 1);
+});
+
+test('processFileHrefs deduplicates file URLs across batch boundaries', async () => {
+    const generator = createGenerator();
+    const files = [
+        'Episode-1.mkv',
+        ...Array.from({ length: 99 }, (_, index) => `Episode-${index + 2}.mkv`),
+        'Episode-1.mkv'
+    ];
+
+    generator.state.isGenerating = true;
+    generator.state.includeVideo = true;
+
+    await generator.processFileHrefs(files, 'https://example.com/Series/', 'Series');
+
+    assert.equal(generator.entries.length, 100);
+    assert.equal(generator.entries.filter(entry => entry.url.endsWith('/Episode-1.mkv')).length, 1);
 });
 
 test('bindKeyboardHandlers closes the info modal first and only closes the panel when idle', () => {
@@ -631,10 +673,13 @@ test('isMediaFileOptimized classifies supported media extensions through the sha
     assert.equal(generator.isMediaFileOptimized('notes.txt'), undefined);
 });
 
-test('addLogEntry refreshes the log UI for the first few entries so short scans render activity', () => {
+test('addLogEntry refreshes the log UI on every entry while the activity panel is open', () => {
     const generator = createGenerator({ stubAddLogEntry: false });
     const refreshes = [];
 
+    generator.domElements.scanLog = {
+        classList: createMockClassList(['expanded'])
+    };
     generator.updateLogUI = () => {
         refreshes.push(generator.logCache.stats.totalLogs);
     };
@@ -645,6 +690,28 @@ test('addLogEntry refreshes the log UI for the first few entries so short scans 
     generator.addLogEntry('Batch Processing: 100%');
 
     assert.deepEqual(refreshes, [1, 2, 3]);
+});
+
+test('addLogEntry keeps cache and counter updated without rendering while the activity panel is closed', () => {
+    const generator = createGenerator({ stubAddLogEntry: false });
+    let refreshCount = 0;
+
+    generator.domElements.scanLog = {
+        classList: createMockClassList()
+    };
+    generator.domElements.logCounter = {
+        textContent: '0'
+    };
+    generator.updateLogUI = () => {
+        refreshCount++;
+    };
+
+    generator.state.isGenerating = true;
+    generator.addLogEntry('Scanning directory');
+
+    assert.equal(refreshCount, 0);
+    assert.equal(generator.logCache.stats.totalLogs, 1);
+    assert.equal(generator.domElements.logCounter.textContent, '1');
 });
 
 test('renderLogEntries incrementally appends new logs when the visible log window stays aligned', () => {

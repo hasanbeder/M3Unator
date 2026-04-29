@@ -151,6 +151,10 @@ async function openPanel(page) {
         const launcher = document.querySelector('.M3Unator-launcher');
         const formatDropdown = document.querySelector('.M3Unator-dropdown');
         const toggleCount = document.querySelectorAll('.M3Unator-toggle-container').length;
+        const aggressiveMode = document.querySelector('#aggressiveMode');
+        const groupTitleToggle = document.querySelector('#groupTitleToggle');
+        const groupTitlePanel = document.querySelector('#groupTitlePanel');
+        const groupTitle = document.querySelector('#groupTitle');
         const playlistInput = document.querySelector('#playlistName');
 
         return Boolean(
@@ -161,8 +165,25 @@ async function openPanel(page) {
             getComputedStyle(formatDropdown).display === 'none' &&
             playlistInput &&
             document.activeElement === playlistInput &&
-            toggleCount === 3
+            toggleCount === 3 &&
+            aggressiveMode &&
+            groupTitleToggle &&
+            getComputedStyle(groupTitleToggle).display === 'none' &&
+            groupTitlePanel &&
+            groupTitle
         );
+    });
+
+    await page.locator('.M3Unator-aggressive-control').click();
+    await page.waitForFunction(() => {
+        const aggressiveMode = document.querySelector('#aggressiveMode');
+        const knob = document.querySelector('.M3Unator-aggressive-knob');
+        return Boolean(aggressiveMode?.checked && knob && getComputedStyle(knob).transform !== 'none');
+    });
+    await page.locator('.M3Unator-aggressive-control').click();
+    await page.waitForFunction(() => {
+        const aggressiveMode = document.querySelector('#aggressiveMode');
+        return Boolean(aggressiveMode && !aggressiveMode.checked);
     });
 }
 
@@ -190,8 +211,39 @@ async function configureScan(page, playlistName) {
     await page.locator('#playlistName').fill(playlistName);
     await page.waitForFunction(() => {
         const dropdown = document.querySelector('.M3Unator-dropdown');
-        return Boolean(dropdown && getComputedStyle(dropdown).display !== 'none');
+        const groupTitleToggle = document.querySelector('#groupTitleToggle');
+        return Boolean(
+            dropdown &&
+            getComputedStyle(dropdown).display !== 'none' &&
+            groupTitleToggle &&
+            getComputedStyle(groupTitleToggle).display !== 'none'
+        );
     });
+
+    await page.locator('.M3Unator-group-title-trigger').click();
+    await page.waitForFunction(() => {
+        const groupTitlePanel = document.querySelector('#groupTitlePanel');
+        const groupTitle = document.querySelector('#groupTitle');
+        const groupTitleToggle = document.querySelector('#groupTitleToggle');
+        return Boolean(
+            groupTitlePanel?.classList.contains('is-visible') &&
+            groupTitle &&
+            !groupTitle.disabled &&
+            groupTitleToggle?.classList.contains('active')
+        );
+    });
+    await page.locator('.M3Unator-group-title-trigger').click();
+    await page.waitForFunction(() => {
+        const groupTitlePanel = document.querySelector('#groupTitlePanel');
+        const groupTitle = document.querySelector('#groupTitle');
+        const groupTitleToggle = document.querySelector('#groupTitleToggle');
+        return Boolean(
+            !groupTitlePanel?.classList.contains('is-visible') &&
+            groupTitle?.disabled &&
+            !groupTitleToggle?.classList.contains('active')
+        );
+    });
+
     await page.evaluate(() => {
         const customDepth = document.querySelector('#customDepth');
         const maxDepth = document.querySelector('#maxDepth');
@@ -311,6 +363,7 @@ async function runExportSmoke(page, baseUrl, fixtureCase) {
     await page.locator('#generateBtn').click();
     await page.locator('.M3Unator-control-btn.pause').waitFor({ state: 'visible' });
     await page.locator('.M3Unator-control-btn.cancel').waitFor({ state: 'visible' });
+    await page.locator('.M3Unator-log-toggle').click();
     await page.locator('#scanLog .M3Unator-log-entry').first().waitFor({ state: 'visible' });
 
     const firstLogText = (await page.locator('#scanLog .M3Unator-log-entry').first().textContent()) || '';
@@ -346,6 +399,7 @@ async function runCancelSmoke(page, baseUrl, fixtureCase) {
 
     await page.locator('#generateBtn').click();
     await page.locator('.M3Unator-control-btn.pause').waitFor({ state: 'visible' });
+    await page.locator('.M3Unator-log-toggle').click();
     await page.locator('#scanLog .M3Unator-log-entry').first().waitFor({ state: 'visible' });
 
     await page.locator('.M3Unator-control-btn.cancel').click();

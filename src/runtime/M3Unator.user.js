@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         M3Unator - Web Directory Playlist Creator
 // @namespace    https://github.com/hasanbeder/M3Unator
-// @version      1.0.2
-// @description  Create M3U/M3U8 playlists from directory listing pages. Automatically finds video and audio files in web server indexes.
+// @version      1.1.0
+// @description  Create M3U/M3U8 playlists from directory listing pages. Automatically finds video and audio files in web server indexes with optional IPTV group titles.
 // @author       Hasan Beder
 // @license      GPL-3.0
 // @match        *://*/*
@@ -16,7 +16,7 @@
 // @noframes     true
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
 
     function normalizeListingText(value) {
@@ -46,35 +46,32 @@
 
     function getDocumentText(doc = document) {
         return normalizeListingText(
-            doc && doc.body && typeof doc.body.textContent === 'string'
-                ? doc.body.textContent
-                : ''
+            doc && doc.body && typeof doc.body.textContent === 'string' ? doc.body.textContent : ''
         );
     }
 
     function getDirectoryListingTitleMarkers(doc = document) {
-        const candidates = [
-            doc && doc.title,
-            getSelectorText(doc, 'h1'),
-            getSelectorText(doc, 'h2')
-        ];
+        const candidates = [doc && doc.title, getSelectorText(doc, 'h1'), getSelectorText(doc, 'h2')];
 
-        return candidates.reduce((markers, value) => {
-            const normalizedValue = normalizeListingText(value);
+        return candidates.reduce(
+            (markers, value) => {
+                const normalizedValue = normalizeListingText(value);
 
-            if (normalizedValue.includes('index of')) {
-                markers.hasIndexOf = true;
+                if (normalizedValue.includes('index of')) {
+                    markers.hasIndexOf = true;
+                }
+
+                if (normalizedValue.includes('directory listing')) {
+                    markers.hasDirectoryListing = true;
+                }
+
+                return markers;
+            },
+            {
+                hasIndexOf: false,
+                hasDirectoryListing: false
             }
-
-            if (normalizedValue.includes('directory listing')) {
-                markers.hasDirectoryListing = true;
-            }
-
-            return markers;
-        }, {
-            hasIndexOf: false,
-            hasDirectoryListing: false
-        });
+        );
     }
 
     function getAnchorHref(anchor) {
@@ -97,11 +94,13 @@
         const href = getAnchorHref(anchor).trim();
         const text = getAnchorText(anchor);
 
-        return href === '../' ||
+        return (
+            href === '../' ||
             text === '../' ||
             text.includes('parent directory') ||
             text.includes('[to parent directory]') ||
-            text.includes('[parentdir]');
+            text.includes('[parentdir]')
+        );
     }
 
     function normalizeDirectoryCandidateHref(
@@ -117,27 +116,28 @@
             !normalizedHref.startsWith('//') &&
             !/^[a-z]+:/i.test(normalizedHref)
             ? (() => {
-                if (!normalizedHref.startsWith('/')) {
-                    return normalizedHref;
-                }
+                  if (!normalizedHref.startsWith('/')) {
+                      return normalizedHref;
+                  }
 
-                try {
-                    const baseUrl = new URL(baseHref);
-                    const candidateUrl = new URL(normalizedHref, baseUrl.href);
-                    const basePath = baseUrl.pathname.endsWith('/') ? baseUrl.pathname : `${baseUrl.pathname}/`;
+                  try {
+                      const baseUrl = new URL(baseHref);
+                      const candidateUrl = new URL(normalizedHref, baseUrl.href);
+                      const basePath = baseUrl.pathname.endsWith('/') ? baseUrl.pathname : `${baseUrl.pathname}/`;
 
-                    if (candidateUrl.origin !== baseUrl.origin || !candidateUrl.pathname.startsWith(basePath)) {
-                        return '';
-                    }
+                      if (candidateUrl.origin !== baseUrl.origin || !candidateUrl.pathname.startsWith(basePath)) {
+                          return '';
+                      }
 
-                    return candidateUrl.pathname.slice(basePath.length);
-                } catch (error) {
-                    return '';
-                }
-            })()
+                      return candidateUrl.pathname.slice(basePath.length);
+                  } catch (_error) {
+                      return '';
+                  }
+              })()
             : '';
     }
 
+    // eslint-disable-next-line no-unused-vars -- exported by the startup helper test harness
     function isRelativeDirectoryCandidateHref(
         href,
         baseHref = window.location && window.location.href ? window.location.href : ''
@@ -227,26 +227,31 @@
     ) {
         const signalCounts = getDirectoryListingSignalCounts(doc, baseHref);
 
-        return signalCounts.relativeCandidateCount >= 1 && (
-            signalCounts.parentLinkCount > 0 ||
-            signalCounts.sortableQueryCount > 0 ||
-            signalCounts.directoryCandidateCount > 0
+        return (
+            signalCounts.relativeCandidateCount >= 1 &&
+            (signalCounts.parentLinkCount > 0 ||
+                signalCounts.sortableQueryCount > 0 ||
+                signalCounts.directoryCandidateCount > 0)
         );
     }
 
     function hasGenericDirectoryListingMarkers(doc = document) {
         const documentText = getDocumentText(doc);
 
-        return documentText.includes('parent directory') ||
+        return (
+            documentText.includes('parent directory') ||
             documentText.includes('[to parent directory]') ||
-            documentText.includes('[parentdir]');
+            documentText.includes('[parentdir]')
+        );
     }
 
     function hasExplicitDirectoryListingSignals(titleMarkers, signalCounts, hasGenericMarkers) {
-        return titleMarkers.hasIndexOf ||
+        return (
+            titleMarkers.hasIndexOf ||
             hasGenericMarkers ||
             signalCounts.parentLinkCount > 0 ||
-            signalCounts.sortableQueryCount > 0;
+            signalCounts.sortableQueryCount > 0
+        );
     }
 
     function getDirectoryListingSupport(
@@ -264,22 +269,16 @@
         const signalCounts = getDirectoryListingSignalCounts(doc, baseHref);
         const hasGenericMarkers = hasGenericDirectoryListingMarkers(doc);
         const hasLiteSpeedStructure = hasSelector(doc, 'div#table-list') && signalCounts.relativeCandidateCount >= 1;
-        const hasCaddyStructure = hasSelector(doc, 'nav.breadcrumbs') &&
+        const hasCaddyStructure =
+            hasSelector(doc, 'nav.breadcrumbs') &&
             hasSelector(doc, 'table.listing') &&
             signalCounts.relativeCandidateCount >= 1;
-        const hasStructuredTable = (
-            hasSelector(doc, 'table#listing') ||
-            hasSelector(doc, 'table[summary="Directory Listing"]')
-        ) && signalCounts.relativeCandidateCount >= 1;
+        const hasStructuredTable =
+            (hasSelector(doc, 'table#listing') || hasSelector(doc, 'table[summary="Directory Listing"]')) &&
+            signalCounts.relativeCandidateCount >= 1;
         const hasLinkStructure = hasDirectoryListingLinkStructure(doc, baseHref);
-        const hasExplicitSignals = hasExplicitDirectoryListingSignals(
-            titleMarkers,
-            signalCounts,
-            hasGenericMarkers
-        );
-        const hasPreListing = hasSelector(doc, 'pre') &&
-            signalCounts.relativeCandidateCount >= 1 &&
-            hasExplicitSignals;
+        const hasExplicitSignals = hasExplicitDirectoryListingSignals(titleMarkers, signalCounts, hasGenericMarkers);
+        const hasPreListing = hasSelector(doc, 'pre') && signalCounts.relativeCandidateCount >= 1 && hasExplicitSignals;
 
         let score = 0;
 
@@ -321,25 +320,21 @@
             score += 2;
         }
 
-        const isSmallBareIndex = titleMarkers.hasIndexOf &&
+        const isSmallBareIndex =
+            titleMarkers.hasIndexOf &&
             signalCounts.relativeCandidateCount >= 1 &&
             signalCounts.anchorCount === signalCounts.relativeCandidateCount &&
             signalCounts.anchorCount <= 5;
 
         return {
-            supported: hasLiteSpeedStructure ||
+            supported:
+                hasLiteSpeedStructure ||
                 hasCaddyStructure ||
                 hasStructuredTable ||
-                (
-                    signalCounts.relativeCandidateCount >= 1 && (
-                        (
-                            hasExplicitSignals &&
-                            score >= 6
-                        ) ||
+                (signalCounts.relativeCandidateCount >= 1 &&
+                    ((hasExplicitSignals && score >= 6) ||
                         (hasGenericMarkers && hasLinkStructure) ||
-                        isSmallBareIndex
-                    )
-                ),
+                        isSmallBareIndex)),
             score,
             signalCounts,
             titleMarkers
@@ -358,26 +353,26 @@
     function parseLiteSpeedDirectory() {
         const links = [];
         const anchors = getAnchorElements(document, '#table-content a[href]');
-        
+
         anchors.forEach(anchor => {
             const href = normalizeDirectoryCandidateHref(getAnchorHref(anchor));
             if (!isParentDirectoryAnchor(anchor) && href) {
                 links.push(new URL(href, window.location.href).href);
             }
         });
-        
+
         return links;
     }
 
-    // Add LiteSpeed support to the existing getDirectoryLinks function
+    // eslint-disable-next-line no-unused-vars -- exported by the startup helper test harness
     function getDirectoryLinks() {
         const links = [];
-        
+
         // LiteSpeed directory listing
         if (document.querySelector('div#table-list')) {
             return parseLiteSpeedDirectory();
         }
-        
+
         // Apache/Nginx style directory listing
         const anchors = getDirectoryListingAnchors(document);
         anchors.forEach(anchor => {
@@ -386,7 +381,7 @@
                 links.push(new URL(href, window.location.href).href);
             }
         });
-        
+
         return links;
     }
 
@@ -619,6 +614,22 @@
             box-shadow: 0 0 0 2px rgba(245, 194, 231, 0.1);
         }
 
+        .M3Unator-popup button:focus-visible,
+        .M3Unator-popup label.M3Unator-inline-switch:focus-visible,
+        .M3Unator-social a:focus-visible,
+        .M3Unator-social button:focus-visible,
+        .M3Unator-launcher:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.4);
+        }
+
+        .M3Unator-popup button:focus:not(:focus-visible),
+        .M3Unator-social a:focus:not(:focus-visible),
+        .M3Unator-social button:focus:not(:focus-visible),
+        .M3Unator-launcher:focus:not(:focus-visible) {
+            outline: none;
+        }
+
         .M3Unator-input::placeholder {
             color: #6c7086;
             opacity: 1;
@@ -701,6 +712,131 @@
             padding: 0.75rem;
             border-radius: 12px;
             backdrop-filter: blur(8px);
+            position: relative;
+        }
+
+        .M3Unator-group-title-trigger {
+            flex: 0 0 auto;
+            align-self: center;
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #6c7086;
+            cursor: pointer;
+            display: none;
+            place-items: center;
+            padding: 0;
+            margin-left: 4px;
+            transition: color 0.18s ease, background 0.18s ease;
+            z-index: 10;
+        }
+
+        .M3Unator-group-title-trigger.is-visible {
+            display: grid;
+        }
+
+        .M3Unator-group-title-trigger svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .M3Unator-group-title-trigger:hover {
+            color: #cdd6f4;
+            background: rgba(205, 214, 244, 0.08);
+        }
+
+        .M3Unator-group-title-trigger.active {
+            color: #89d8eb;
+            background: rgba(137, 220, 235, 0.12);
+        }
+
+        .M3Unator-group-title-inline {
+            flex: 0 0 auto;
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-width 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+            margin-left: 0;
+        }
+
+        .M3Unator-group-title-inline.is-visible {
+            max-width: 180px;
+            opacity: 1;
+            margin-left: 6px;
+        }
+
+        .M3Unator-group-title-inline .M3Unator-group-title-input {
+            height: 36px;
+            min-height: 36px;
+            font-size: 0.82rem;
+        }
+
+        .M3Unator-generate-row {
+            position: relative;
+        }
+
+        .M3Unator-generate-row .M3Unator-button {
+            padding-right: 60px;
+        }
+
+        .M3Unator-aggressive-control {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            width: 42px;
+            height: 24px;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .M3Unator-aggressive-control input[type="checkbox"] {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .M3Unator-aggressive-switch {
+            position: relative;
+            width: 38px;
+            height: 22px;
+            border-radius: 999px;
+            background: rgba(30, 30, 46, 0.42);
+            border: 1px solid rgba(30, 30, 46, 0.34);
+            box-shadow: 0 0 0 1px rgba(17, 17, 27, 0.12) inset;
+            transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .M3Unator-aggressive-knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            background: #cdd6f4;
+            box-shadow: 0 2px 5px rgba(17, 17, 27, 0.35);
+            transition: transform 0.18s ease, background 0.18s ease;
+        }
+
+        .M3Unator-aggressive-control:hover .M3Unator-aggressive-switch,
+        .M3Unator-aggressive-control:focus-within .M3Unator-aggressive-switch {
+            box-shadow: 0 0 0 2px rgba(30, 30, 46, 0.18), 0 0 12px rgba(17, 17, 27, 0.18);
+        }
+
+        .M3Unator-aggressive-control input[type="checkbox"]:checked + .M3Unator-aggressive-switch {
+            background: rgba(250, 179, 135, 0.38);
+            border-color: rgba(250, 179, 135, 0.92);
+            box-shadow: 0 0 12px rgba(250, 179, 135, 0.24);
+        }
+
+        .M3Unator-aggressive-control input[type="checkbox"]:checked + .M3Unator-aggressive-switch .M3Unator-aggressive-knob {
+            transform: translateX(16px);
+            background: #fff4dc;
         }
 
         .M3Unator-button {
@@ -1297,100 +1433,9 @@
             font-family: inherit;
         }
 
-        .M3Unator-advanced-settings {
-            margin-top: 1rem;
-            padding: 1rem;
-            background: rgba(30, 30, 46, 0.5);
-            border: 1px solid #313244;
-            border-radius: 8px;
-            display: none;
-        }
-
-        .M3Unator-advanced-settings.active {
-            display: block;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .M3Unator-advanced-toggle {
-            width: 100%;
-            padding: 0.75rem;
-            background: #1e1e2e;
-            border: 1px solid #313244;
-            border-radius: 8px;
-            color: #cdd6f4;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.2s ease;
-        }
-
-        .M3Unator-advanced-toggle:hover {
-            background: #313244;
-        }
-
-        .M3Unator-advanced-toggle svg {
-            width: 16px;
-            height: 16px;
-            transition: transform 0.2s ease;
-        }
-
-        .M3Unator-advanced-toggle.active svg {
-            transform: rotate(180deg);
-        }
-
-        .M3Unator-depth-slider {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 4px;
-            border-radius: 2px;
-            background: #313244;
-            outline: none;
-            margin: 1rem 0;
-        }
-
-        .M3Unator-depth-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #cba6f7;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .M3Unator-depth-slider::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-        }
-
-        .M3Unator-depth-value {
-            text-align: center;
-            font-size: 0.875rem;
-            color: #cdd6f4;
-            margin-top: 0.5rem;
-        }
-
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
-        }
-
-        .M3Unator-depth-settings {
-            margin-top: 0.75rem;
-            margin-left: 1.75rem;
-            padding: 0.75rem;
-            background: rgba(30, 30, 46, 0.3);
-            border-left: 2px solid #cba6f7;
-            border-radius: 0 8px 8px 0;
-            display: none;
-            animation: slideDown 0.3s ease;
-        }
-
-        .M3Unator-depth-settings.active {
-            display: block;
         }
 
         .M3Unator-depth-input {
@@ -1450,11 +1495,6 @@
             background: rgba(203, 166, 247, 0.1);
             border-color: #cba6f7;
             color: #cba6f7;
-        }
-
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         .M3Unator-stats-bar {
@@ -2398,7 +2438,7 @@
             const timestamp = new Date().toLocaleTimeString();
             this.logs.push({ message, type, timestamp, sequence });
             this.stats.totalLogs = sequence;
-            
+
             if (this.logs.length > this.maxSize) {
                 this.logs.shift();
                 this.stats.skippedLogs++;
@@ -2448,9 +2488,7 @@
         }
 
         getAboutDialogTitle() {
-            return this.scriptVersion
-                ? `About M3Unator v${this.scriptVersion}`
-                : 'About M3Unator';
+            return this.scriptVersion ? `About M3Unator v${this.scriptVersion}` : 'About M3Unator';
         }
 
         getBrandTextMarkup() {
@@ -2487,21 +2525,79 @@
 
         createVideoFormats() {
             return [
-                '.mp4', '.mkv', '.avi', '.webm', '.mov', '.flv', '.wmv',
-                '.m4v', '.mpg', '.mpeg', '.3gp', '.vob', '.ts', '.mts',
-                '.m2ts', '.divx', '.xvid', '.asf', '.ogv', '.rm', '.rmvb',
-                '.wtv', '.qt', '.hevc', '.f4v', '.swf', '.vro', '.ogx',
-                '.drc', '.gifv', '.mxf', '.roq', '.nsv'
+                '.mp4',
+                '.mkv',
+                '.avi',
+                '.webm',
+                '.mov',
+                '.flv',
+                '.wmv',
+                '.m4v',
+                '.mpg',
+                '.mpeg',
+                '.3gp',
+                '.vob',
+                '.ts',
+                '.mts',
+                '.m2ts',
+                '.divx',
+                '.xvid',
+                '.asf',
+                '.ogv',
+                '.rm',
+                '.rmvb',
+                '.wtv',
+                '.qt',
+                '.hevc',
+                '.f4v',
+                '.swf',
+                '.vro',
+                '.ogx',
+                '.drc',
+                '.gifv',
+                '.mxf',
+                '.roq',
+                '.nsv'
             ];
         }
 
         createAudioFormats() {
             return [
-                '.mp3', '.m4a', '.wav', '.flac', '.aac', '.ogg', '.wma',
-                '.opus', '.aiff', '.ape', '.mka', '.ac3', '.dts', '.m4b',
-                '.m4p', '.m4r', '.mid', '.midi', '.mp2', '.mpa', '.mpc',
-                '.ra', '.tta', '.voc', '.vox', '.amr', '.awb', '.dsf',
-                '.dff', '.alac', '.wv', '.oga', '.sln', '.aif', '.pcm'
+                '.mp3',
+                '.m4a',
+                '.wav',
+                '.flac',
+                '.aac',
+                '.ogg',
+                '.wma',
+                '.opus',
+                '.aiff',
+                '.ape',
+                '.mka',
+                '.ac3',
+                '.dts',
+                '.m4b',
+                '.m4p',
+                '.m4r',
+                '.mid',
+                '.midi',
+                '.mp2',
+                '.mpa',
+                '.mpc',
+                '.ra',
+                '.tta',
+                '.voc',
+                '.vox',
+                '.amr',
+                '.awb',
+                '.dsf',
+                '.dff',
+                '.alac',
+                '.wv',
+                '.oga',
+                '.sln',
+                '.aif',
+                '.pcm'
             ];
         }
 
@@ -2526,11 +2622,25 @@
                 selectedFormat: 'm3u',
                 includeVideo: false,
                 includeAudio: false,
+                aggressiveMode: false,
+                groupTitle: '',
                 maxEntries: 1000000,
-                timeoutMs: 5000,
+                timeoutMs: 12000,
                 retryCount: 2,
                 maxDepth: 0,
                 maxSeenUrls: 5000,
+                concurrency: {
+                    min: 2,
+                    start: 4,
+                    max: 12,
+                    hardCap: 16
+                },
+                aggressiveConcurrency: {
+                    min: 3,
+                    start: 6,
+                    max: 20,
+                    hardCap: 24
+                },
                 stats: { ...initialStats }
             };
         }
@@ -2539,8 +2649,62 @@
             this.entries = [];
             this.seenUrls = new Set();
             this.seenUrlOrder = [];
+            this.scanAbortController = null;
+            this.scanPerformance = this.createInitialScanPerformance();
             this.toastQueue = [];
             this.isProcessingToast = false;
+        }
+
+        createInitialScanPerformance() {
+            const concurrencyConfig = this.getActiveConcurrencyConfig
+                ? this.getActiveConcurrencyConfig()
+                : this.state.concurrency;
+
+            return {
+                currentConcurrency: concurrencyConfig ? concurrencyConfig.start : 4,
+                requestSamples: [],
+                sampleWindow: 20,
+                lastIncreaseAt: 0,
+                increaseCooldownMs: 2500,
+                lastEventLoopLag: 0,
+                rateLimitedUntil: 0
+            };
+        }
+
+        getActiveConcurrencyConfig() {
+            return this.state.aggressiveMode ? this.state.aggressiveConcurrency : this.state.concurrency;
+        }
+
+        startScanSession() {
+            this.scanAbortController = typeof AbortController === 'function' ? new AbortController() : null;
+
+            this.configureScanSignalMaxListeners();
+            this.scanPerformance = this.createInitialScanPerformance();
+        }
+
+        configureScanSignalMaxListeners() {
+            const signal = this.getScanAbortSignal();
+            if (!signal || typeof signal.setMaxListeners !== 'function') {
+                return;
+            }
+
+            const config = this.getActiveConcurrencyConfig();
+            signal.setMaxListeners(config.hardCap + 5);
+        }
+
+        abortScanSession() {
+            if (this.scanAbortController && !this.scanAbortController.signal.aborted) {
+                this.scanAbortController.abort();
+            }
+        }
+
+        getScanAbortSignal() {
+            return this.scanAbortController ? this.scanAbortController.signal : null;
+        }
+
+        isScanAborted() {
+            const signal = this.getScanAbortSignal();
+            return Boolean(signal && signal.aborted);
         }
 
         createIcons() {
@@ -2615,16 +2779,30 @@
                     <polyline points="2 17 12 22 22 17"/>
                     <polyline points="2 12 12 17 22 12"/>
                 </svg>`,
+                aggressive: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+                </svg>`,
+                tv: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="6" width="18" height="12" rx="2"/>
+                    <path d="M8 20h8"/>
+                    <path d="M12 18v2"/>
+                    <path d="M8 10h8"/>
+                    <path d="M8 14h5"/>
+                </svg>`,
                 logToggle: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>`,
+                tag: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                    <line x1="7" y1="7" x2="7.01" y2="7"/>
                 </svg>`
             };
         }
 
         createTemplates() {
             return {
-                toggleButton: (id, title, icon, checked = false) => `
-                    <div class="M3Unator-toggle-container">
+                toggleButton: (id, title, icon, checked = false, className = '') => `
+                    <div class="M3Unator-toggle-container ${className}">
                         <label title="${title}" aria-label="${title}">
                             <input type="checkbox" id="${id}" ${checked ? 'checked' : ''}>
                             <span aria-hidden="true">${icon}</span>
@@ -2701,7 +2879,7 @@
         }
 
         createActivityIndicatorUpdater() {
-            return (status) => {
+            return status => {
                 const indicator = this.domElements.activityIndicator;
                 if (!indicator) return;
 
@@ -2728,21 +2906,13 @@
                         props.id,
                         props.title,
                         props.icon,
-                        props.checked
+                        props.checked,
+                        props.className || ''
                     );
                 case 'control':
-                    return this.templates.controlButton(
-                        props.type,
-                        props.icon,
-                        props.text
-                    );
+                    return this.templates.controlButton(props.type, props.icon, props.text);
                 case 'stats':
-                    return this.templates.statsItem(
-                        props.icon,
-                        props.id,
-                        props.title,
-                        props.class
-                    );
+                    return this.templates.statsItem(props.icon, props.id, props.title, props.class);
                 default:
                     return '';
             }
@@ -2803,10 +2973,10 @@
                         <div class="M3Unator-input-row">
                             <div class="M3Unator-input-group M3Unator-format-group">
                                 <label for="playlistName" class="M3Unator-visually-hidden">Playlist name</label>
-                                <input type="text" 
-                                    id="playlistName" 
+                                <input type="text"
+                                    id="playlistName"
                                     class="M3Unator-input"
-                                    placeholder="Playlist Name" 
+                                    placeholder="Playlist Name"
                                     required
                                     spellcheck="false"
                                     autocomplete="off"
@@ -2824,6 +2994,20 @@
                                         <div class="M3Unator-dropdown-item" data-value="m3u8" data-button-label=".m3u8" title="UTF-8 M3U export with BOM for wider player compatibility" role="option" aria-selected="false">.m3u8</div>
                                     </div>
                                 </div>
+                            </div>
+                            <button type="button" class="M3Unator-group-title-trigger" id="groupTitleToggle" title="Add group-title metadata for IPTV players" aria-label="Toggle group title" aria-expanded="false" aria-controls="groupTitlePanel">
+                                ${this.icons.tag}
+                            </button>
+                            <div class="M3Unator-group-title-inline" id="groupTitlePanel" role="region" aria-labelledby="groupTitleToggle" aria-hidden="true">
+                                <label for="groupTitle" class="M3Unator-visually-hidden">Group title</label>
+                                <input type="text"
+                                    id="groupTitle"
+                                    class="M3Unator-input M3Unator-group-title-input"
+                                    placeholder="Group title"
+                                    spellcheck="false"
+                                    autocomplete="off"
+                                    autocorrect="off"
+                                    autocapitalize="off">
                             </div>
                         </div>
 
@@ -2856,10 +3040,18 @@
                             </div>
                         </div>
 
-                        <button type="button" class="M3Unator-button" id="generateBtn">
-                            ${this.icons.download}
-                            <span>Create Playlist</span>
-                        </button>
+                        <div class="M3Unator-generate-row">
+                            <button type="button" class="M3Unator-button" id="generateBtn">
+                                ${this.icons.download}
+                                <span>Create Playlist</span>
+                            </button>
+                            <label class="M3Unator-aggressive-control" title="Fast scan: higher parallel requests for trusted servers" aria-label="Fast scan">
+                                <input type="checkbox" id="aggressiveMode">
+                                <span class="M3Unator-aggressive-switch" aria-hidden="true">
+                                    <span class="M3Unator-aggressive-knob"></span>
+                                </span>
+                            </label>
+                        </div>
 
                         <div class="M3Unator-controls">
                             ${controlButtons}
@@ -2923,7 +3115,9 @@
                     icon: this.icons.folder,
                     checked: true
                 }
-            ].map(props => this.createComponent('toggle', props)).join('');
+            ]
+                .map(props => this.createComponent('toggle', props))
+                .join('');
         }
 
         buildControlButtonsMarkup() {
@@ -2943,7 +3137,9 @@
                     icon: this.icons.cancel,
                     text: 'Cancel'
                 }
-            ].map(props => this.createComponent('control', props)).join('');
+            ]
+                .map(props => this.createComponent('control', props))
+                .join('');
         }
 
         buildStatsItemsMarkup() {
@@ -2990,7 +3186,9 @@
                     label: 'Errors',
                     class: 'error'
                 }
-            ].map(props => this.createComponent('stats', props)).join('');
+            ]
+                .map(props => this.createComponent('stats', props))
+                .join('');
         }
 
         createLauncherButton() {
@@ -3033,6 +3231,10 @@
                 includeVideo: container.querySelector('#includeVideo'),
                 includeAudio: container.querySelector('#includeAudio'),
                 recursiveSearch: container.querySelector('#recursiveSearch'),
+                aggressiveMode: container.querySelector('#aggressiveMode'),
+                groupTitleToggle: container.querySelector('#groupTitleToggle'),
+                groupTitlePanel: container.querySelector('#groupTitlePanel'),
+                groupTitle: container.querySelector('#groupTitle'),
                 controls: container.querySelector('.M3Unator-controls'),
                 scanLog: container.querySelector('#scanLog'),
                 statsBar: container.querySelector('.M3Unator-stats-bar'),
@@ -3053,7 +3255,7 @@
                 maxDepth: container.querySelector('#maxDepth'),
                 logToggle: container.querySelector('.M3Unator-log-toggle'),
                 logCounter: container.querySelector('.M3Unator-log-counter'),
-                activityIndicator: container.querySelector('.M3Unator-activity-indicator'),
+                activityIndicator: container.querySelector('.M3Unator-activity-indicator')
             };
         }
 
@@ -3155,7 +3357,7 @@
         }
 
         bindKeyboardHandlers() {
-            document.addEventListener('keydown', (event) => {
+            document.addEventListener('keydown', event => {
                 if (event.key !== 'Escape') {
                     return;
                 }
@@ -3181,9 +3383,11 @@
                 if (log.classList.contains('expanded')) {
                     log.classList.remove('expanded');
                     toggle.classList.remove('active');
+                    this.cancelScheduledLogUiUpdate();
                 } else {
                     log.classList.add('expanded');
                     toggle.classList.add('active');
+                    this.renderLogEntries(log);
                     log.scrollTop = log.scrollHeight;
                 }
             });
@@ -3211,36 +3415,36 @@
                 const rect = element.getBoundingClientRect();
                 const centerX = (window.innerWidth - rect.width) / 2;
                 const centerY = (window.innerHeight - rect.height) / 2;
-                
+
                 element.style.left = `${centerX}px`;
                 element.style.top = `${centerY}px`;
-                
+
                 xOffset = centerX;
                 yOffset = centerY;
-                
+
                 element.style.transform = 'none';
             };
 
             centerWindow();
 
-            const getPosition = (e) => {
+            const getPosition = e => {
                 return {
                     x: e.type.includes('touch') ? e.touches[0].clientX : e.clientX,
                     y: e.type.includes('touch') ? e.touches[0].clientY : e.clientY
                 };
             };
 
-            const dragStart = (e) => {
+            const dragStart = e => {
                 if (e.target === handle || handle.contains(e.target)) {
                     e.preventDefault();
                     const pos = getPosition(e);
-                    
+
                     isDragging = true;
-                    
+
                     const rect = element.getBoundingClientRect();
                     xOffset = rect.left;
                     yOffset = rect.top;
-                    
+
                     initialX = pos.x - xOffset;
                     initialY = pos.y - yOffset;
 
@@ -3248,7 +3452,7 @@
                 }
             };
 
-            const drag = (e) => {
+            const drag = e => {
                 if (isDragging) {
                     e.preventDefault();
                     const pos = getPosition(e);
@@ -3265,7 +3469,7 @@
 
                     element.style.left = `${currentX}px`;
                     element.style.top = `${currentY}px`;
-                    
+
                     xOffset = currentX;
                     yOffset = currentY;
                 }
@@ -3371,13 +3575,32 @@
             };
         }
 
-        initializePopupSelections(includeVideo, includeAudio, recursiveSearch) {
+        initializePopupSelections(includeVideo, includeAudio, recursiveSearch, aggressiveMode) {
             recursiveSearch.checked = true;
             includeVideo.checked = true;
             includeAudio.checked = true;
+            if (aggressiveMode) {
+                aggressiveMode.checked = false;
+            }
             this.state.recursiveSearch = true;
             this.state.includeVideo = true;
             this.state.includeAudio = true;
+            this.state.aggressiveMode = false;
+            this.state.groupTitle = '';
+
+            const { groupTitle, groupTitleToggle, groupTitlePanel } = this.domElements;
+            if (groupTitle) {
+                groupTitle.disabled = true;
+                groupTitle.value = '';
+            }
+            if (groupTitleToggle) {
+                groupTitleToggle.classList.remove('active');
+                groupTitleToggle.setAttribute('aria-expanded', 'false');
+            }
+            if (groupTitlePanel) {
+                groupTitlePanel.classList.remove('is-visible');
+                groupTitlePanel.setAttribute('aria-hidden', 'true');
+            }
         }
 
         syncDropdownVisibility(playlistInput, dropdown, dropdownButton) {
@@ -3390,6 +3613,26 @@
                 dropdown.classList.remove('active');
                 if (dropdownButton) {
                     dropdownButton.setAttribute('aria-expanded', 'false');
+                }
+            }
+
+            const groupTitleToggle = this.domElements.groupTitleToggle;
+            if (groupTitleToggle) {
+                groupTitleToggle.classList.toggle('is-visible', isVisible);
+                if (!isVisible) {
+                    const groupTitlePanel = this.domElements.groupTitlePanel;
+                    const groupTitle = this.domElements.groupTitle;
+                    if (groupTitlePanel && groupTitlePanel.classList.contains('is-visible')) {
+                        groupTitlePanel.classList.remove('is-visible');
+                        groupTitlePanel.setAttribute('aria-hidden', 'true');
+                    }
+                    if (groupTitle) {
+                        groupTitle.value = '';
+                        groupTitle.disabled = true;
+                        this.state.groupTitle = '';
+                    }
+                    groupTitleToggle.classList.remove('active');
+                    groupTitleToggle.setAttribute('aria-expanded', 'false');
                 }
             }
         }
@@ -3433,7 +3676,7 @@
                 dropdownButton.setAttribute('aria-expanded', dropdown.classList.contains('active') ? 'true' : 'false');
             });
 
-            document.addEventListener('click', (event) => {
+            document.addEventListener('click', event => {
                 if (!dropdown.contains(event.target)) {
                     this.collapseFormatDropdown(dropdown, dropdownButton);
                 }
@@ -3451,7 +3694,8 @@
                     });
                     item.classList.add('selected');
                     item.setAttribute('aria-selected', 'true');
-                    dropdownButton.querySelector('span').textContent = item.dataset.buttonLabel || item.textContent.trim();
+                    dropdownButton.querySelector('span').textContent =
+                        item.dataset.buttonLabel || item.textContent.trim();
                     this.state.selectedFormat = item.dataset.value;
                     this.collapseFormatDropdown(dropdown, dropdownButton);
                 });
@@ -3459,22 +3703,75 @@
         }
 
         bindMediaToggleHandlers(includeVideo, includeAudio) {
-            includeVideo.addEventListener('change', (event) => {
+            includeVideo.addEventListener('change', event => {
                 this.state.includeVideo = event.target.checked;
                 this.addLogEntry(
-                    event.target.checked ?
-                    'Video files will be included' :
-                    'Video files will not be included',
+                    event.target.checked ? 'Video files will be included' : 'Video files will not be included',
                     'info'
                 );
             });
 
-            includeAudio.addEventListener('change', (event) => {
+            includeAudio.addEventListener('change', event => {
                 this.state.includeAudio = event.target.checked;
                 this.addLogEntry(
-                    event.target.checked ?
-                    'Audio files will be included' :
-                    'Audio files will not be included',
+                    event.target.checked ? 'Audio files will be included' : 'Audio files will not be included',
+                    'info'
+                );
+            });
+        }
+
+        bindAggressiveModeHandler(aggressiveMode) {
+            if (!aggressiveMode) {
+                return;
+            }
+
+            aggressiveMode.addEventListener('change', event => {
+                this.state.aggressiveMode = event.target.checked;
+                this.addLogEntry(
+                    event.target.checked
+                        ? 'Aggressive mode enabled: higher parallel scanning with adaptive throttling'
+                        : 'Aggressive mode disabled: standard parallel scanning restored',
+                    event.target.checked ? 'warning' : 'info'
+                );
+            });
+        }
+
+        bindGroupTitleHandler(groupTitle) {
+            if (!groupTitle) {
+                return;
+            }
+
+            const syncGroupTitle = () => {
+                this.state.groupTitle = groupTitle.value.trim();
+            };
+
+            groupTitle.addEventListener('input', syncGroupTitle);
+            groupTitle.addEventListener('change', syncGroupTitle);
+            syncGroupTitle();
+        }
+
+        bindGroupTitleToggleHandler(groupTitleToggle, groupTitlePanel, groupTitle) {
+            if (!groupTitleToggle || !groupTitlePanel) {
+                return;
+            }
+
+            groupTitleToggle.addEventListener('click', () => {
+                const isOpen = groupTitlePanel.classList.toggle('is-visible');
+                groupTitlePanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+                groupTitleToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                groupTitleToggle.classList.toggle('active', isOpen);
+
+                if (isOpen && groupTitle) {
+                    groupTitle.disabled = false;
+                    groupTitle.focus();
+                } else if (!isOpen && groupTitle) {
+                    groupTitle.value = '';
+                    groupTitle.disabled = true;
+                    this.state.groupTitle = '';
+                }
+
+                this.addLogEntry(
+                    isOpen ? 'Group title enabled for single-category exports' : 'Group title disabled',
                     'info'
                 );
             });
@@ -3492,7 +3789,7 @@
         }
 
         bindDepthControlHandlers(recursiveSearch, currentDepth, customDepth, maxDepth, depthControls) {
-            recursiveSearch.addEventListener('change', (event) => {
+            recursiveSearch.addEventListener('change', event => {
                 if (!event.target.checked) {
                     depthControls.style.display = 'block';
                     depthControls.classList.add('active');
@@ -3510,7 +3807,7 @@
                 }
             });
 
-            currentDepth.addEventListener('change', (event) => {
+            currentDepth.addEventListener('change', event => {
                 if (event.target.checked && !recursiveSearch.checked) {
                     this.state.maxDepth = 0;
                     maxDepth.disabled = true;
@@ -3518,27 +3815,25 @@
                 }
             });
 
-            customDepth.addEventListener('change', (event) => {
+            customDepth.addEventListener('change', event => {
                 if (event.target.checked && !recursiveSearch.checked) {
                     const depthValue = parseInt(maxDepth.value) || 1;
                     this.state.maxDepth = depthValue;
                     maxDepth.disabled = false;
                     this.addLogEntry(
-                        `Directory scanning depth: ${depthValue} ` +
-                        `(current directory + ${depthValue} sublevels)`,
+                        `Directory scanning depth: ${depthValue} ` + `(current directory + ${depthValue} sublevels)`,
                         'info'
                     );
                 }
             });
 
-            maxDepth.addEventListener('input', (event) => {
+            maxDepth.addEventListener('input', event => {
                 if (customDepth.checked && !recursiveSearch.checked) {
                     const value = Math.min(99, Math.max(1, parseInt(event.target.value) || 1));
                     event.target.value = value;
                     this.state.maxDepth = value;
                     this.addLogEntry(
-                        `Directory scanning depth updated: ${value} ` +
-                        `(current directory + ${value} sublevels)`,
+                        `Directory scanning depth updated: ${value} ` + `(current directory + ${value} sublevels)`,
                         'info'
                     );
                 }
@@ -3580,6 +3875,7 @@
         handleCancelScan() {
             this.state.isGenerating = false;
             this.state.isPaused = false;
+            this.abortScanSession();
             this.updateActivityIndicator('cancelled');
 
             setTimeout(() => {
@@ -3590,11 +3886,7 @@
 
         clearLogSessionState() {
             this.logCount = 0;
-
-            if (this._updateLogUITimeout) {
-                clearTimeout(this._updateLogUITimeout);
-                this._updateLogUITimeout = null;
-            }
+            this.cancelScheduledLogUiUpdate();
 
             if (this.logCache) {
                 this.logCache.clear();
@@ -3629,6 +3921,12 @@
             this.domElements.includeVideo.disabled = true;
             this.domElements.includeAudio.disabled = true;
             this.domElements.recursiveSearch.disabled = true;
+            if (this.domElements.aggressiveMode) {
+                this.domElements.aggressiveMode.disabled = true;
+            }
+            if (this.domElements.groupTitle) {
+                this.domElements.groupTitle.disabled = true;
+            }
             this.domElements.currentDepth.disabled = true;
             this.domElements.customDepth.disabled = true;
             this.domElements.maxDepth.disabled = true;
@@ -3676,6 +3974,7 @@
 
             try {
                 this.resetScanSessionState();
+                this.startScanSession();
                 this.prepareScanRunUi(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn);
 
                 const entries = await this.scanDirectory(window.location.href, '', 0);
@@ -3701,7 +4000,7 @@
 
                 this.showToast(`Playlist "${fileName}" created successfully`, 'success');
                 this.updateActivityIndicator('completed');
-                this.reset({ keepLogs: true, keepUI: true, enableToggles: true });
+                this.reset({ keepLogs: true, enableToggles: true });
             } catch (error) {
                 this.state.isGenerating = false;
                 this.state.isPaused = false;
@@ -3727,14 +4026,7 @@
             });
 
             generateBtn.addEventListener('click', async () => {
-                await this.handleGenerateRequest(
-                    generateBtn,
-                    controls,
-                    pauseBtn,
-                    resumeBtn,
-                    cancelBtn,
-                    playlistInput
-                );
+                await this.handleGenerateRequest(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn, playlistInput);
             });
         }
 
@@ -3745,6 +4037,8 @@
                 includeVideo,
                 includeAudio,
                 recursiveSearch,
+                aggressiveMode,
+                groupTitle,
                 controls,
                 dropdown,
                 currentDepth,
@@ -3759,8 +4053,15 @@
 
             this.bindPlaylistInputHandlers(playlistInput, dropdown, dropdownButton);
             this.bindDropdownHandlers(dropdown, dropdownButton, dropdownItems);
-            this.initializePopupSelections(includeVideo, includeAudio, recursiveSearch);
+            this.initializePopupSelections(includeVideo, includeAudio, recursiveSearch, aggressiveMode);
             this.bindMediaToggleHandlers(includeVideo, includeAudio);
+            this.bindAggressiveModeHandler(aggressiveMode);
+            this.bindGroupTitleHandler(groupTitle);
+            this.bindGroupTitleToggleHandler(
+                this.domElements.groupTitleToggle,
+                this.domElements.groupTitlePanel,
+                groupTitle
+            );
             this.initializeDepthControls(currentDepth, customDepth, maxDepth, depthControls);
             this.bindDepthControlHandlers(recursiveSearch, currentDepth, customDepth, maxDepth, depthControls);
             this.bindScanControlHandlers(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn, playlistInput);
@@ -3793,8 +4094,12 @@
                 `• Audio files: ${this.formatFullStatValue(stats.files.audio.total)}`,
                 `• Scanned directories: ${this.formatFullStatValue(stats.directories.total)}`,
                 `• Maximum depth: ${this.formatFullStatValue(stats.directories.depth)}`,
-                stats.errors.total > 0 ? `• Errors: ${this.formatFullStatValue(stats.errors.total)} (${this.formatFullStatValue(stats.errors.skipped)} skipped)` : null
-            ].filter(Boolean).join('\n');
+                stats.errors.total > 0
+                    ? `• Errors: ${this.formatFullStatValue(stats.errors.total)} (${this.formatFullStatValue(stats.errors.skipped)} skipped)`
+                    : null
+            ]
+                .filter(Boolean)
+                .join('\n');
 
             this.addLogEntry(summary, 'final');
         }
@@ -3819,12 +4124,39 @@
         }
 
         restoreToggleAvailability(elements) {
-            if (elements.includeVideo) elements.includeVideo.disabled = false;
-            if (elements.includeAudio) elements.includeAudio.disabled = false;
-            if (elements.recursiveSearch) elements.recursiveSearch.disabled = false;
-            if (elements.currentDepth) elements.currentDepth.disabled = false;
-            if (elements.customDepth) elements.customDepth.disabled = false;
-            if (elements.maxDepth) elements.maxDepth.disabled = elements.customDepth ? !elements.customDepth.checked : true;
+            if (elements.includeVideo) {
+                elements.includeVideo.disabled = false;
+            }
+
+            if (elements.includeAudio) {
+                elements.includeAudio.disabled = false;
+            }
+
+            if (elements.recursiveSearch) {
+                elements.recursiveSearch.disabled = false;
+            }
+
+            if (elements.aggressiveMode) {
+                elements.aggressiveMode.disabled = false;
+            }
+
+            if (elements.groupTitle) {
+                const isPanelOpen =
+                    elements.groupTitlePanel && elements.groupTitlePanel.classList.contains('is-visible');
+                elements.groupTitle.disabled = !isPanelOpen;
+            }
+
+            if (elements.currentDepth) {
+                elements.currentDepth.disabled = false;
+            }
+
+            if (elements.customDepth) {
+                elements.customDepth.disabled = false;
+            }
+
+            if (elements.maxDepth) {
+                elements.maxDepth.disabled = elements.customDepth ? !elements.customDepth.checked : true;
+            }
             if (elements.dropdownButton) {
                 elements.dropdownButton.disabled = false;
                 elements.dropdownButton.setAttribute('aria-disabled', 'false');
@@ -3889,7 +4221,6 @@
                 isCancelled = false,
                 uiOnly = false,
                 keepLogs = false,
-                keepUI = false,
                 enableToggles = false,
                 wasGenerating = this.state.isGenerating
             } = options;
@@ -4042,32 +4373,84 @@
 
         getFetchHeaders() {
             return {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9',
-                'Connection': 'keep-alive',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                Connection: 'keep-alive',
+                'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             };
         }
 
         buildFetchOptions(options) {
+            const fetchOptions = { ...options };
+            delete fetchOptions.timeout;
+
             return {
-                ...options,
+                ...fetchOptions,
                 headers: this.getFetchHeaders(),
-                timeout: options.timeout || 30000,
                 signal: options.signal
             };
         }
 
-        createFetchFailureError(response, url, retryAttempt) {
-            return this.createOperationError(
-                'HTTP_FETCH_FAILED',
-                `HTTP error! Status: ${response.status}`,
-                {
-                    url,
-                    status: response.status,
-                    retryAttempt
+        createAbortError(message = 'Operation aborted') {
+            if (typeof DOMException === 'function') {
+                return new DOMException(message, 'AbortError');
+            }
+
+            const error = new Error(message);
+            error.name = 'AbortError';
+            return error;
+        }
+
+        createLinkedAbortController(parentSignal, timeoutMs) {
+            if (typeof AbortController !== 'function') {
+                return {
+                    signal: parentSignal || null,
+                    cleanup() {}
+                };
+            }
+
+            const controller = new AbortController();
+            let timeoutId = null;
+
+            const abortFromParent = () => {
+                controller.abort();
+            };
+
+            if (parentSignal) {
+                if (parentSignal.aborted) {
+                    controller.abort();
+                } else {
+                    parentSignal.addEventListener('abort', abortFromParent, { once: true });
                 }
-            );
+            }
+
+            if (timeoutMs > 0) {
+                timeoutId = setTimeout(() => {
+                    controller.abort();
+                }, timeoutMs);
+            }
+
+            return {
+                signal: controller.signal,
+                cleanup() {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+
+                    if (parentSignal) {
+                        parentSignal.removeEventListener('abort', abortFromParent);
+                    }
+                }
+            };
+        }
+
+        createFetchFailureError(response, url, retryAttempt) {
+            return this.createOperationError('HTTP_FETCH_FAILED', `HTTP error! Status: ${response.status}`, {
+                url,
+                status: response.status,
+                retryAttempt
+            });
         }
 
         async parseFetchResponse(response) {
@@ -4079,20 +4462,72 @@
             };
         }
 
+        getHttpStatusCode(error) {
+            if (error && error.context && error.context.status) {
+                return Number(error.context.status);
+            }
+
+            const status = error && typeof error.message === 'string' ? error.message.match(/\b\d{3}\b/) : null;
+            return status ? Number(status[0]) : null;
+        }
+
         shouldThrowFetchErrorImmediately(error) {
-            return error.name === 'AbortError' || error.message.includes('404');
+            const status = this.getHttpStatusCode(error);
+            return status === 401 || status === 403 || status === 404 || status === 410;
         }
 
-        async waitForRetryDelay(attemptIndex) {
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attemptIndex) * 1000));
+        waitForRetryDelay(attemptIndex, signal = null) {
+            const delayMs = Math.pow(2, attemptIndex) * 1000;
+
+            return new Promise((resolve, reject) => {
+                if (signal && signal.aborted) {
+                    reject(this.createAbortError());
+                    return;
+                }
+
+                const timeoutId = setTimeout(() => {
+                    if (signal) {
+                        signal.removeEventListener('abort', abort);
+                    }
+
+                    resolve();
+                }, delayMs);
+
+                const abort = () => {
+                    clearTimeout(timeoutId);
+                    reject(this.createAbortError());
+                };
+
+                if (signal) {
+                    signal.addEventListener('abort', abort, { once: true });
+                }
+            });
         }
 
-        async fetchWithRetry(url, options = {}, retries = 3) {
+        getFetchRetryCount(retries) {
+            return Number.isFinite(retries) ? retries : this.state.retryCount;
+        }
+
+        getFetchTimeoutMs(options) {
+            return Number.isFinite(options.timeout) ? options.timeout : this.state.timeoutMs;
+        }
+
+        async fetchWithRetry(url, options = {}, retries = null) {
             let lastError;
+            const retryCount = this.getFetchRetryCount(retries);
+            const timeoutMs = this.getFetchTimeoutMs(options);
 
-            for (let attemptIndex = 0; attemptIndex < retries; attemptIndex++) {
+            for (let attemptIndex = 0; attemptIndex < retryCount; attemptIndex++) {
+                const linkedAbort = this.createLinkedAbortController(options.signal, timeoutMs);
+
                 try {
-                    const response = await fetch(url, this.buildFetchOptions(options));
+                    const response = await fetch(
+                        url,
+                        this.buildFetchOptions({
+                            ...options,
+                            signal: linkedAbort.signal
+                        })
+                    );
 
                     if (!response.ok) {
                         throw this.createFetchFailureError(response, url, attemptIndex + 1);
@@ -4102,13 +4537,19 @@
                 } catch (error) {
                     lastError = error;
 
+                    if (error.name === 'AbortError' && options.signal && options.signal.aborted) {
+                        throw error;
+                    }
+
                     if (this.shouldThrowFetchErrorImmediately(error)) {
                         throw error;
                     }
 
-                    if (attemptIndex < retries - 1) {
-                        await this.waitForRetryDelay(attemptIndex);
+                    if (attemptIndex < retryCount - 1) {
+                        await this.waitForRetryDelay(attemptIndex, options.signal);
                     }
+                } finally {
+                    linkedAbort.cleanup();
                 }
             }
 
@@ -4154,7 +4595,8 @@
         }
 
         decodeHtmlEntities(value) {
-            return value.replace(/&amp;/g, '&')
+            return value
+                .replace(/&amp;/g, '&')
                 .replace(/&lt;/g, '<')
                 .replace(/&gt;/g, '>')
                 .replace(/&quot;/g, '"')
@@ -4274,7 +4716,7 @@
         }
 
         normalizeUrl(url) {
-            const normalized = url.replace(/([^:]\/)\/+/g, "$1");
+            const normalized = url.replace(/([^:]\/)\/+/g, '$1');
             return normalized.endsWith('/') ? normalized : `${normalized}/`;
         }
 
@@ -4306,7 +4748,7 @@
         }
 
         shouldStopScanning() {
-            return !this.state.isGenerating || this.entries.length >= this.state.maxEntries;
+            return !this.state.isGenerating || this.isScanAborted() || this.entries.length >= this.state.maxEntries;
         }
 
         async waitForScanResume() {
@@ -4316,7 +4758,8 @@
         }
 
         buildNormalizedScanUrl(url) {
-            return this.normalizeUrl(url).replace(/#/g, '%23')
+            return this.normalizeUrl(url)
+                .replace(/#/g, '%23')
                 .replace(/\s+/g, '%20')
                 .replace(/\[/g, '%5B')
                 .replace(/\]/g, '%5D')
@@ -4363,10 +4806,7 @@
                 this.seenUrls.delete(url);
             });
 
-            this.addLogEntry(
-                `Cache cleared (${previousCount} -> ${this.seenUrlOrder.length})`,
-                'info'
-            );
+            this.addLogEntry(`Cache cleared (${previousCount} -> ${this.seenUrlOrder.length})`, 'info');
         }
 
         trackSeenDirectory(normalizedUrl) {
@@ -4380,15 +4820,66 @@
 
         async fetchDirectoryResponse(normalizedUrl) {
             try {
-                return await this.fetchWithRetry(normalizedUrl, {
-                    signal: null,
-                    timeout: 30000
-                });
+                return await this.fetchWithRetry(
+                    normalizedUrl,
+                    {
+                        signal: this.getScanAbortSignal(),
+                        timeout: this.state.timeoutMs
+                    },
+                    this.state.retryCount
+                );
             } catch (error) {
+                if (this.isScanAborted()) {
+                    return null;
+                }
+
                 if (error.name === 'AbortError') {
-                    this.addLogEntry(`Request cancelled: ${decodeURIComponent(normalizedUrl)}`, 'warning');
+                    this.addLogEntry(`Request timed out: ${decodeURIComponent(normalizedUrl)}`, 'warning');
                 } else if (error.message.includes('404')) {
                     this.addLogEntry(`Directory not found: ${decodeURIComponent(normalizedUrl)}`, 'warning');
+                } else {
+                    this.addLogEntry(`Connection error: ${error.message}`, 'error');
+                }
+
+                return null;
+            }
+        }
+
+        async fetchDirectoryForScheduler(scanTask) {
+            const requestStartedAt = this.getPerformanceNow();
+
+            try {
+                const response = await this.fetchWithRetry(
+                    scanTask.normalizedUrl,
+                    {
+                        signal: this.getScanAbortSignal(),
+                        timeout: this.state.timeoutMs
+                    },
+                    this.state.retryCount
+                );
+                this.recordScanRequestSample({
+                    duration: this.getPerformanceNow() - requestStartedAt,
+                    status: response.status,
+                    ok: true,
+                    timedOut: false
+                });
+                return response;
+            } catch (error) {
+                this.recordScanRequestSample({
+                    duration: this.getPerformanceNow() - requestStartedAt,
+                    status: this.getHttpStatusCode(error),
+                    ok: false,
+                    timedOut: error.name === 'AbortError'
+                });
+
+                if (this.isScanAborted()) {
+                    return null;
+                }
+
+                if (error.name === 'AbortError') {
+                    this.addLogEntry(`Request timed out: ${decodeURIComponent(scanTask.normalizedUrl)}`, 'warning');
+                } else if (error.message.includes('404')) {
+                    this.addLogEntry(`Directory not found: ${decodeURIComponent(scanTask.normalizedUrl)}`, 'warning');
                 } else {
                     this.addLogEntry(`Connection error: ${error.message}`, 'error');
                 }
@@ -4416,9 +4907,7 @@
 
         getListingDocumentText(doc) {
             return this.normalizeListingText(
-                doc && doc.body && typeof doc.body.textContent === 'string'
-                    ? doc.body.textContent
-                    : ''
+                doc && doc.body && typeof doc.body.textContent === 'string' ? doc.body.textContent : ''
             );
         }
 
@@ -4431,7 +4920,9 @@
         }
 
         getListingAnchorText(anchor) {
-            return this.normalizeListingText(anchor && typeof anchor.textContent === 'string' ? anchor.textContent : '');
+            return this.normalizeListingText(
+                anchor && typeof anchor.textContent === 'string' ? anchor.textContent : ''
+            );
         }
 
         isSortableDirectoryQueryHref(href) {
@@ -4442,11 +4933,13 @@
             const href = this.getListingAnchorHref(anchor).trim();
             const text = this.getListingAnchorText(anchor);
 
-            return href === '../' ||
+            return (
+                href === '../' ||
                 text === '../' ||
                 text.includes('parent directory') ||
                 text.includes('[to parent directory]') ||
-                text.includes('[parentdir]');
+                text.includes('[parentdir]')
+            );
         }
 
         getPreferredListingAnchorSelector(doc) {
@@ -4489,26 +4982,36 @@
                 this.getListingSelectorText(doc, 'h2')
             ];
 
-            return candidates.reduce((markers, value) => {
-                const normalizedValue = this.normalizeListingText(value);
+            return candidates.reduce(
+                (markers, value) => {
+                    const normalizedValue = this.normalizeListingText(value);
 
-                if (normalizedValue.includes('index of')) {
-                    markers.hasIndexOf = true;
+                    if (normalizedValue.includes('index of')) {
+                        markers.hasIndexOf = true;
+                    }
+
+                    if (normalizedValue.includes('directory listing')) {
+                        markers.hasDirectoryListing = true;
+                    }
+
+                    return markers;
+                },
+                {
+                    hasIndexOf: false,
+                    hasDirectoryListing: false
                 }
-
-                if (normalizedValue.includes('directory listing')) {
-                    markers.hasDirectoryListing = true;
-                }
-
-                return markers;
-            }, {
-                hasIndexOf: false,
-                hasDirectoryListing: false
-            });
+            );
         }
 
         getDirectoryListingSignalCounts(
             doc,
+            baseUrl = window.location && window.location.href ? window.location.href : ''
+        ) {
+            return this.collectDirectoryListingSignals(this.getListingAnchorElements(doc), baseUrl).counts;
+        }
+
+        collectDirectoryListingSignals(
+            anchors,
             baseUrl = window.location && window.location.href ? window.location.href : ''
         ) {
             const counts = {
@@ -4519,8 +5022,9 @@
                 parentLinkCount: 0,
                 sortableQueryCount: 0
             };
+            const hrefs = [];
+            const seenHrefs = new Set();
 
-            const anchors = this.getListingAnchorElements(doc);
             counts.anchorCount = anchors.length;
 
             anchors.forEach(anchor => {
@@ -4542,6 +5046,10 @@
                 }
 
                 counts.relativeCandidateCount++;
+                if (!seenHrefs.has(normalizedHref)) {
+                    seenHrefs.add(normalizedHref);
+                    hrefs.push(normalizedHref);
+                }
 
                 if (normalizedHref.endsWith('/')) {
                     counts.directoryCandidateCount++;
@@ -4551,53 +5059,58 @@
                 counts.fileCandidateCount++;
             });
 
-            return counts;
+            return { counts, hrefs };
         }
 
         hasGenericDirectoryListingMarkers(doc) {
             const documentText = this.getListingDocumentText(doc);
 
-            return documentText.includes('parent directory') ||
+            return (
+                documentText.includes('parent directory') ||
                 documentText.includes('[to parent directory]') ||
-                documentText.includes('[parentdir]');
+                documentText.includes('[parentdir]')
+            );
         }
 
         hasExplicitDirectoryListingSignals(titleMarkers, signalCounts, hasGenericMarkers) {
-            return titleMarkers.hasIndexOf ||
+            return (
+                titleMarkers.hasIndexOf ||
                 hasGenericMarkers ||
                 signalCounts.parentLinkCount > 0 ||
-                signalCounts.sortableQueryCount > 0;
+                signalCounts.sortableQueryCount > 0
+            );
         }
 
-        getDirectoryListingSupport(
-            doc,
-            baseUrl = window.location && window.location.href ? window.location.href : ''
-        ) {
+        getDirectoryListingSupport(doc, baseUrl = window.location && window.location.href ? window.location.href : '') {
             const titleMarkers = this.getDirectoryListingTitleMarkers(doc);
             const signalCounts = this.getDirectoryListingSignalCounts(doc, baseUrl);
+            return this.buildDirectoryListingSupport(doc, titleMarkers, signalCounts);
+        }
+
+        buildDirectoryListingSupport(doc, titleMarkers, signalCounts) {
             const hasGenericMarkers = this.hasGenericDirectoryListingMarkers(doc);
-            const hasLiteSpeedStructure = this.hasListingSelector(doc, 'div#table-list') &&
-                signalCounts.relativeCandidateCount >= 1;
-            const hasCaddyStructure = this.hasListingSelector(doc, 'nav.breadcrumbs') &&
+            const hasLiteSpeedStructure =
+                this.hasListingSelector(doc, 'div#table-list') && signalCounts.relativeCandidateCount >= 1;
+            const hasCaddyStructure =
+                this.hasListingSelector(doc, 'nav.breadcrumbs') &&
                 this.hasListingSelector(doc, 'table.listing') &&
                 signalCounts.relativeCandidateCount >= 1;
-            const hasStructuredTable = (
-                this.hasListingSelector(doc, 'table#listing') ||
-                this.hasListingSelector(doc, 'table[summary="Directory Listing"]')
-            ) && signalCounts.relativeCandidateCount >= 1;
-            const hasLinkStructure = signalCounts.relativeCandidateCount >= 1 && (
-                signalCounts.parentLinkCount > 0 ||
-                signalCounts.sortableQueryCount > 0 ||
-                signalCounts.directoryCandidateCount > 0
-            );
+            const hasStructuredTable =
+                (this.hasListingSelector(doc, 'table#listing') ||
+                    this.hasListingSelector(doc, 'table[summary="Directory Listing"]')) &&
+                signalCounts.relativeCandidateCount >= 1;
+            const hasLinkStructure =
+                signalCounts.relativeCandidateCount >= 1 &&
+                (signalCounts.parentLinkCount > 0 ||
+                    signalCounts.sortableQueryCount > 0 ||
+                    signalCounts.directoryCandidateCount > 0);
             const hasExplicitSignals = this.hasExplicitDirectoryListingSignals(
                 titleMarkers,
                 signalCounts,
                 hasGenericMarkers
             );
-            const hasPreListing = this.hasListingSelector(doc, 'pre') &&
-                signalCounts.relativeCandidateCount >= 1 &&
-                hasExplicitSignals;
+            const hasPreListing =
+                this.hasListingSelector(doc, 'pre') && signalCounts.relativeCandidateCount >= 1 && hasExplicitSignals;
 
             let score = 0;
 
@@ -4639,26 +5152,35 @@
                 score += 2;
             }
 
-            const isSmallBareIndex = titleMarkers.hasIndexOf &&
+            const isSmallBareIndex =
+                titleMarkers.hasIndexOf &&
                 signalCounts.relativeCandidateCount >= 1 &&
                 signalCounts.anchorCount === signalCounts.relativeCandidateCount &&
                 signalCounts.anchorCount <= 5;
 
             return {
-                supported: hasLiteSpeedStructure ||
+                supported:
+                    hasLiteSpeedStructure ||
                     hasCaddyStructure ||
                     hasStructuredTable ||
-                    (
-                        signalCounts.relativeCandidateCount >= 1 && (
-                            (
-                                hasExplicitSignals &&
-                                score >= 6
-                            ) ||
+                    (signalCounts.relativeCandidateCount >= 1 &&
+                        ((hasExplicitSignals && score >= 6) ||
                             (hasGenericMarkers && hasLinkStructure) ||
-                            isSmallBareIndex
-                        )
-                    ),
+                            isSmallBareIndex)),
                 score
+            };
+        }
+
+        analyzeDirectoryDocument(doc, baseUrl = window.location && window.location.href ? window.location.href : '') {
+            const anchors = this.getListingAnchorElements(doc);
+            const { counts, hrefs } = this.collectDirectoryListingSignals(anchors, baseUrl);
+            const titleMarkers = this.getDirectoryListingTitleMarkers(doc);
+            const listingSupport = this.buildDirectoryListingSupport(doc, titleMarkers, counts);
+
+            return {
+                ...listingSupport,
+                counts,
+                hrefs: listingSupport.supported ? hrefs : []
             };
         }
 
@@ -4686,14 +5208,16 @@
             try {
                 const directoryUrl = new URL(baseUrl);
                 const candidateUrl = new URL(normalizedHref, directoryUrl.href);
-                const directoryPath = directoryUrl.pathname.endsWith('/') ? directoryUrl.pathname : `${directoryUrl.pathname}/`;
+                const directoryPath = directoryUrl.pathname.endsWith('/')
+                    ? directoryUrl.pathname
+                    : `${directoryUrl.pathname}/`;
 
                 if (candidateUrl.origin !== directoryUrl.origin || !candidateUrl.pathname.startsWith(directoryPath)) {
                     return '';
                 }
 
                 return candidateUrl.pathname.slice(directoryPath.length);
-            } catch (error) {
+            } catch (_error) {
                 return '';
             }
         }
@@ -4785,14 +5309,31 @@
         updateBatchProgress(batchProgress) {
             batchProgress.processed++;
 
-            if (batchProgress.processed % 20 === 0 || batchProgress.processed === batchProgress.total) {
+            if (this.shouldLogBatchProgress(batchProgress)) {
                 const progress = Math.floor((batchProgress.processed / batchProgress.total) * 100);
                 this.addLogEntry(
                     `Batch Processing: ${progress}% (${batchProgress.processed}/${batchProgress.total}, ` +
-                    `Success: ${batchProgress.success}, Error: ${batchProgress.errors})`,
+                        `Success: ${batchProgress.success}, Error: ${batchProgress.errors})`,
                     'info'
                 );
             }
+        }
+
+        getBatchProgressStep(total) {
+            if (total > 2000) {
+                return 250;
+            }
+
+            if (total > 200) {
+                return 100;
+            }
+
+            return 20;
+        }
+
+        shouldLogBatchProgress(batchProgress) {
+            const step = this.getBatchProgressStep(batchProgress.total);
+            return batchProgress.processed % step === 0 || batchProgress.processed === batchProgress.total;
         }
 
         processFileHref(href, normalizedUrl, currentPath, processedUrls, batchProgress) {
@@ -4810,10 +5351,10 @@
                 this.state.stats.totalFiles = (this.state.stats.totalFiles || 0) + 1;
 
                 const mediaType = this.isMediaFileOptimized(fileName);
-                const shouldIncludeMedia = mediaType && (
-                    (mediaType === 'video' && this.state.includeVideo) ||
-                    (mediaType === 'audio' && this.state.includeAudio)
-                );
+                const shouldIncludeMedia =
+                    mediaType &&
+                    ((mediaType === 'video' && this.state.includeVideo) ||
+                        (mediaType === 'audio' && this.state.includeAudio));
 
                 if (shouldIncludeMedia) {
                     if (mediaType === 'video') {
@@ -4837,10 +5378,9 @@
             }
         }
 
-        processFileBatch(files, startIndex, batchSize, normalizedUrl, currentPath) {
+        processFileBatch(files, startIndex, batchSize, normalizedUrl, currentPath, processedUrls) {
             const endIndex = Math.min(startIndex + batchSize, files.length);
             const batchProgress = this.createBatchProgress(endIndex - startIndex);
-            const processedUrls = new Set();
 
             for (let fileIndex = startIndex; fileIndex < endIndex; fileIndex++) {
                 this.processFileHref(files[fileIndex], normalizedUrl, currentPath, processedUrls, batchProgress);
@@ -4857,6 +5397,7 @@
 
         async processFileHrefs(files, normalizedUrl, currentPath) {
             const batchSize = 100;
+            const processedUrls = new Set();
 
             for (let index = 0; index < files.length; index += batchSize) {
                 await this.waitForScanResume();
@@ -4865,7 +5406,7 @@
                     break;
                 }
 
-                this.processFileBatch(files, index, batchSize, normalizedUrl, currentPath);
+                this.processFileBatch(files, index, batchSize, normalizedUrl, currentPath, processedUrls);
 
                 const processedCount = Math.min(index + batchSize, files.length);
                 if (this.shouldYieldAfterFileBatch(processedCount, files.length)) {
@@ -4875,8 +5416,119 @@
         }
 
         shouldScanSubdirectories(depth) {
-            return this.state.maxDepth === -1 ||
-                (this.state.maxDepth > 0 && depth < this.state.maxDepth);
+            return this.state.maxDepth === -1 || (this.state.maxDepth > 0 && depth < this.state.maxDepth);
+        }
+
+        getPerformanceNow() {
+            return typeof performance !== 'undefined' && typeof performance.now === 'function'
+                ? performance.now()
+                : Date.now();
+        }
+
+        clampScanConcurrency(value) {
+            const config = this.getActiveConcurrencyConfig();
+            const hardMax = Math.min(config.max, config.hardCap);
+            return Math.max(config.min, Math.min(hardMax, value));
+        }
+
+        getCurrentScanConcurrency() {
+            if (!this.scanPerformance) {
+                this.scanPerformance = this.createInitialScanPerformance();
+            }
+
+            return this.clampScanConcurrency(this.scanPerformance.currentConcurrency);
+        }
+
+        async sampleEventLoopLag() {
+            const startedAt = this.getPerformanceNow();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            this.recordEventLoopLagSample(this.getPerformanceNow() - startedAt);
+        }
+
+        recordEventLoopLagSample(lagMs) {
+            if (!this.scanPerformance) {
+                return;
+            }
+
+            const lag = Math.max(0, lagMs);
+            this.scanPerformance.lastEventLoopLag = lag;
+
+            if (lag > 300) {
+                this.scanPerformance.currentConcurrency = this.state.concurrency.min;
+                return;
+            }
+
+            if (lag > 150) {
+                this.scanPerformance.currentConcurrency = this.clampScanConcurrency(
+                    Math.floor(this.scanPerformance.currentConcurrency / 2)
+                );
+            }
+        }
+
+        recordScanRequestSample(sample) {
+            if (!this.scanPerformance) {
+                this.scanPerformance = this.createInitialScanPerformance();
+            }
+
+            const performanceState = this.scanPerformance;
+            performanceState.requestSamples.push(sample);
+
+            while (performanceState.requestSamples.length > performanceState.sampleWindow) {
+                performanceState.requestSamples.shift();
+            }
+
+            this.adjustScanConcurrency(sample);
+        }
+
+        adjustScanConcurrency(sample) {
+            const performanceState = this.scanPerformance;
+            const config = this.getActiveConcurrencyConfig();
+            const now = this.getPerformanceNow();
+            const status = Number(sample.status || 0);
+
+            if (status === 429 || status === 503) {
+                performanceState.rateLimitedUntil = now + 10000;
+                performanceState.currentConcurrency = this.clampScanConcurrency(
+                    Math.floor(performanceState.currentConcurrency / 2)
+                );
+                return;
+            }
+
+            const samples = performanceState.requestSamples;
+            const failedSamples = samples.filter(entry => !entry.ok || entry.timedOut);
+            const averageLatency = samples.reduce((total, entry) => total + entry.duration, 0) / samples.length;
+            const errorRate = failedSamples.length / samples.length;
+
+            if (sample.timedOut || errorRate > 0.15 || averageLatency > 2500) {
+                performanceState.currentConcurrency = this.clampScanConcurrency(
+                    Math.floor(performanceState.currentConcurrency / 2)
+                );
+                return;
+            }
+
+            const canIncrease =
+                samples.length >= Math.min(5, performanceState.sampleWindow) &&
+                errorRate === 0 &&
+                averageLatency < 600 &&
+                now - performanceState.lastIncreaseAt >= performanceState.increaseCooldownMs &&
+                now > performanceState.rateLimitedUntil &&
+                performanceState.currentConcurrency < config.max;
+
+            if (canIncrease) {
+                performanceState.currentConcurrency = this.clampScanConcurrency(
+                    performanceState.currentConcurrency + 1
+                );
+                performanceState.lastIncreaseAt = now;
+            }
+        }
+
+        createScanTask(url, currentPath = '', depth = 0) {
+            return {
+                url,
+                currentPath,
+                depth,
+                normalizedUrl: this.buildNormalizedScanUrl(url)
+            };
         }
 
         queueSubdirectoryScan(dir, normalizedUrl, currentPath, depth, activeRequests) {
@@ -4885,13 +5537,24 @@
                 const { fileName, dirPath } = this.extractDirectoryInfo(dir);
                 const fullPath = this.joinRelativePath(currentPath, dirPath, fileName);
 
-                let trackedPromise;
-                trackedPromise = this.scanDirectory(fullUrl, fullPath, depth + 1)
-                    .finally(() => {
-                        activeRequests.delete(trackedPromise);
-                    });
+                const trackedPromise = this.scanDirectory(fullUrl, fullPath, depth + 1).finally(() => {
+                    activeRequests.delete(trackedPromise);
+                });
 
                 activeRequests.add(trackedPromise);
+                this.addLogEntry(`Entering subdirectory: ${fullPath || this.decodeString(dir).replace(/\/+$/, '')}`);
+            } catch (error) {
+                console.error('Directory scanning error:', error);
+                this.state.stats.errors.total++;
+            }
+        }
+
+        queueSubdirectoryTask(dir, parentTask, pendingTasks) {
+            try {
+                const fullUrl = new URL(dir, parentTask.normalizedUrl).toString();
+                const { fileName, dirPath } = this.extractDirectoryInfo(dir);
+                const fullPath = this.joinRelativePath(parentTask.currentPath, dirPath, fileName);
+                pendingTasks.push(this.createScanTask(fullUrl, fullPath, parentTask.depth + 1));
                 this.addLogEntry(`Entering subdirectory: ${fullPath || this.decodeString(dir).replace(/\/+$/, '')}`);
             } catch (error) {
                 console.error('Directory scanning error:', error);
@@ -4917,7 +5580,7 @@
             }
         }
 
-        async scanDirectory(url, currentPath = '', depth = 0) {
+        async processScanTask(scanTask, pendingTasks) {
             try {
                 this.resetCurrentStats();
 
@@ -4927,45 +5590,78 @@
 
                 await this.waitForScanResume();
 
-                const normalizedUrl = this.buildNormalizedScanUrl(url);
-                this.updateDirectoryScanStats(normalizedUrl, depth);
+                this.updateDirectoryScanStats(scanTask.normalizedUrl, scanTask.depth);
 
-                if (this.shouldSkipSeenDirectory(normalizedUrl)) {
+                if (this.shouldSkipSeenDirectory(scanTask.normalizedUrl)) {
                     return this.entries;
                 }
 
-                this.trackSeenDirectory(normalizedUrl);
+                this.trackSeenDirectory(scanTask.normalizedUrl);
 
-                const response = await this.fetchDirectoryResponse(normalizedUrl);
+                const response = await this.fetchDirectoryForScheduler(scanTask);
                 if (!response) {
                     return this.entries;
                 }
 
                 const doc = this.parseDirectoryDocument(response.decodedText);
-                const listingSupport = this.getDirectoryListingSupport(doc, normalizedUrl);
-                if (!listingSupport.supported) {
-                    this.addLogEntry(`Skipped non-listing page: ${decodeURIComponent(normalizedUrl)}`, 'warning');
+                const listingAnalysis = this.analyzeDirectoryDocument(doc, scanTask.normalizedUrl);
+                if (!listingAnalysis.supported) {
+                    this.addLogEntry(
+                        `Skipped non-listing page: ${decodeURIComponent(scanTask.normalizedUrl)}`,
+                        'warning'
+                    );
                     return this.entries;
                 }
 
-                const hrefs = this.hasListingSelector(doc, 'div#table-list')
-                    ? this.extractLiteSpeedHrefs(doc, normalizedUrl)
-                    : this.extractGenericListingHrefs(doc, normalizedUrl);
-                const { directories, files } = this.splitDirectoryAndFileHrefs(hrefs);
+                const { directories, files } = this.splitDirectoryAndFileHrefs(listingAnalysis.hrefs);
 
-                await this.processFileHrefs(files, normalizedUrl, currentPath);
+                await this.processFileHrefs(files, scanTask.normalizedUrl, scanTask.currentPath);
 
-                if (this.shouldScanSubdirectories(depth) && directories.length > 0) {
-                    await this.scanSubdirectoryQueue(directories, normalizedUrl, currentPath, depth);
+                if (this.shouldScanSubdirectories(scanTask.depth) && directories.length > 0) {
+                    directories.forEach(dir => {
+                        this.queueSubdirectoryTask(dir, scanTask, pendingTasks);
+                    });
                 }
 
                 this.updateCounter(this.state.stats.totalFiles);
                 return this.entries;
             } catch (error) {
                 this.state.stats.errors.total++;
-                this.addLogEntry(`Scan error (${currentPath || url}): ${error.message}`, 'error');
+                this.addLogEntry(`Scan error (${scanTask.currentPath || scanTask.url}): ${error.message}`, 'error');
                 return this.entries;
             }
+        }
+
+        async runScanScheduler(initialTask) {
+            const pendingTasks = [initialTask];
+            const activeTasks = new Set();
+
+            while ((pendingTasks.length > 0 || activeTasks.size > 0) && !this.shouldStopScanning()) {
+                await this.waitForScanResume();
+
+                while (
+                    pendingTasks.length > 0 &&
+                    activeTasks.size < this.getCurrentScanConcurrency() &&
+                    !this.shouldStopScanning()
+                ) {
+                    const scanTask = pendingTasks.shift();
+                    const trackedTask = this.processScanTask(scanTask, pendingTasks).finally(() => {
+                        activeTasks.delete(trackedTask);
+                    });
+                    activeTasks.add(trackedTask);
+                }
+
+                if (activeTasks.size > 0) {
+                    await Promise.race(activeTasks);
+                    await this.sampleEventLoopLag();
+                }
+            }
+
+            return this.entries;
+        }
+
+        async scanDirectory(url, currentPath = '', depth = 0) {
+            return this.runScanScheduler(this.createScanTask(url, currentPath, depth));
         }
 
         countPathDepth(path) {
@@ -4992,7 +5688,7 @@
                     isVideo: mediaType === 'video',
                     isAudio: mediaType === 'audio'
                 };
-            } catch (error) {
+            } catch (_error) {
                 return {
                     ...entry,
                     decodedTitle: entry.title,
@@ -5044,14 +5740,35 @@
             return sortedVideoEntries.concat(sortedAudioEntries);
         }
 
+        getNormalizedGroupTitle() {
+            return typeof this.state.groupTitle === 'string' ? this.state.groupTitle.trim() : '';
+        }
+
+        escapeM3uAttribute(value) {
+            return String(value)
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"')
+                .replace(/[\r\n]+/g, ' ')
+                .trim();
+        }
+
+        buildExtinfLine(entry) {
+            const groupTitle = this.getNormalizedGroupTitle();
+            if (!groupTitle) {
+                return `#EXTINF:-1,${entry.decodedTitle}`;
+            }
+
+            return `#EXTINF:-1 group-title="${this.escapeM3uAttribute(groupTitle)}",${entry.decodedTitle}`;
+        }
+
         serializePlaylistEntries(entries) {
-            let serializedEntries = '';
+            const serializedEntries = [];
 
             entries.forEach(entry => {
-                serializedEntries += `#EXTINF:-1,${entry.decodedTitle}\n${entry.url}\n`;
+                serializedEntries.push(`${this.buildExtinfLine(entry)}\n${entry.url}\n`);
             });
 
-            return serializedEntries;
+            return serializedEntries.join('');
         }
 
         normalizePlaylistFormat(format = this.state.selectedFormat) {
@@ -5090,9 +5807,7 @@
 
             return {
                 ...formatConfig,
-                content: formatConfig.prependUtf8Bom
-                    ? `\uFEFF${playlistContent}`
-                    : playlistContent
+                content: formatConfig.prependUtf8Bom ? `\uFEFF${playlistContent}` : playlistContent
             };
         }
 
@@ -5103,7 +5818,7 @@
         decodeUrlInLogMessage(url) {
             try {
                 return decodeURIComponent(url);
-            } catch (error) {
+            } catch (_error) {
                 return url;
             }
         }
@@ -5114,12 +5829,28 @@
             }
 
             const urlRegex = /(https?:\/\/[^\s]+)/g;
-            return message.replace(urlRegex, (url) => this.decodeUrlInLogMessage(url));
+            return message.replace(urlRegex, url => this.decodeUrlInLogMessage(url));
         }
 
-        shouldRefreshLogUi(type = '') {
-            const totalLogs = this.logCache.stats.totalLogs;
-            return totalLogs <= 5 || totalLogs % 10 === 0 || type === 'final';
+        isLogPanelExpanded() {
+            const scanLog = this.domElements.scanLog;
+            return Boolean(scanLog && scanLog.classList && scanLog.classList.contains('expanded'));
+        }
+
+        cancelScheduledLogUiUpdate() {
+            if (this._updateLogUITimeout) {
+                clearTimeout(this._updateLogUITimeout);
+                this._updateLogUITimeout = null;
+            }
+
+            if (this._updateLogUIFrame) {
+                cancelAnimationFrame(this._updateLogUIFrame);
+                this._updateLogUIFrame = null;
+            }
+        }
+
+        shouldRefreshLogUi() {
+            return this.isLogPanelExpanded();
         }
 
         syncLogCounter() {
@@ -5251,15 +5982,19 @@
             const scanLog = this.domElements.scanLog;
             if (!scanLog) return;
 
-            if (this._updateLogUITimeout) {
-                clearTimeout(this._updateLogUITimeout);
+            if (!this.isLogPanelExpanded()) {
+                this.cancelScheduledLogUiUpdate();
+                return;
             }
 
-            this._updateLogUITimeout = setTimeout(() => {
-                requestAnimationFrame(() => {
-                    this.renderLogEntries(scanLog);
-                });
-            }, 100);
+            if (this._updateLogUIFrame) {
+                return;
+            }
+
+            this._updateLogUIFrame = requestAnimationFrame(() => {
+                this.renderLogEntries(scanLog);
+                this._updateLogUIFrame = null;
+            });
         }
 
         getReportLogIcon(type) {
@@ -5338,9 +6073,7 @@
             if (maxDepth > 0) {
                 const progress = (value / maxDepth) * 100;
                 statContainer.dataset.progress =
-                    progress >= 100 ? 'high' :
-                    progress >= 75 ? 'medium' :
-                    progress >= 50 ? 'low' : '';
+                    progress >= 100 ? 'high' : progress >= 75 ? 'medium' : progress >= 50 ? 'low' : '';
                 statContainer.title = `${label}: ${this.formatFullStatValue(value)}/${this.formatFullStatValue(maxDepth)}`;
             } else {
                 statContainer.dataset.progress = '';
@@ -5401,7 +6134,6 @@
     const generator = new PlaylistGenerator();
     generator.init();
 
-    const container = generator.domElements.container;
     const { infoLink, infoClose, infoModal } = generator.domElements;
 
     // Event listeners for info modal
@@ -5413,7 +6145,7 @@
         generator.closeInfoModal({ restoreFocus: true });
     });
 
-    window.addEventListener('click', (event) => {
+    window.addEventListener('click', event => {
         if (event.target === infoModal) {
             generator.closeInfoModal({ restoreFocus: true });
         }

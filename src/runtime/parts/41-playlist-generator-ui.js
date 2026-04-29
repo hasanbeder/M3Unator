@@ -53,10 +53,10 @@
                         <div class="M3Unator-input-row">
                             <div class="M3Unator-input-group M3Unator-format-group">
                                 <label for="playlistName" class="M3Unator-visually-hidden">Playlist name</label>
-                                <input type="text" 
-                                    id="playlistName" 
+                                <input type="text"
+                                    id="playlistName"
                                     class="M3Unator-input"
-                                    placeholder="Playlist Name" 
+                                    placeholder="Playlist Name"
                                     required
                                     spellcheck="false"
                                     autocomplete="off"
@@ -74,6 +74,20 @@
                                         <div class="M3Unator-dropdown-item" data-value="m3u8" data-button-label=".m3u8" title="UTF-8 M3U export with BOM for wider player compatibility" role="option" aria-selected="false">.m3u8</div>
                                     </div>
                                 </div>
+                            </div>
+                            <button type="button" class="M3Unator-group-title-trigger" id="groupTitleToggle" title="Add group-title metadata for IPTV players" aria-label="Toggle group title" aria-expanded="false" aria-controls="groupTitlePanel">
+                                ${this.icons.tag}
+                            </button>
+                            <div class="M3Unator-group-title-inline" id="groupTitlePanel" role="region" aria-labelledby="groupTitleToggle" aria-hidden="true">
+                                <label for="groupTitle" class="M3Unator-visually-hidden">Group title</label>
+                                <input type="text"
+                                    id="groupTitle"
+                                    class="M3Unator-input M3Unator-group-title-input"
+                                    placeholder="Group title"
+                                    spellcheck="false"
+                                    autocomplete="off"
+                                    autocorrect="off"
+                                    autocapitalize="off">
                             </div>
                         </div>
 
@@ -106,10 +120,18 @@
                             </div>
                         </div>
 
-                        <button type="button" class="M3Unator-button" id="generateBtn">
-                            ${this.icons.download}
-                            <span>Create Playlist</span>
-                        </button>
+                        <div class="M3Unator-generate-row">
+                            <button type="button" class="M3Unator-button" id="generateBtn">
+                                ${this.icons.download}
+                                <span>Create Playlist</span>
+                            </button>
+                            <label class="M3Unator-aggressive-control" title="Fast scan: higher parallel requests for trusted servers" aria-label="Fast scan">
+                                <input type="checkbox" id="aggressiveMode">
+                                <span class="M3Unator-aggressive-switch" aria-hidden="true">
+                                    <span class="M3Unator-aggressive-knob"></span>
+                                </span>
+                            </label>
+                        </div>
 
                         <div class="M3Unator-controls">
                             ${controlButtons}
@@ -283,6 +305,10 @@
                 includeVideo: container.querySelector('#includeVideo'),
                 includeAudio: container.querySelector('#includeAudio'),
                 recursiveSearch: container.querySelector('#recursiveSearch'),
+                aggressiveMode: container.querySelector('#aggressiveMode'),
+                groupTitleToggle: container.querySelector('#groupTitleToggle'),
+                groupTitlePanel: container.querySelector('#groupTitlePanel'),
+                groupTitle: container.querySelector('#groupTitle'),
                 controls: container.querySelector('.M3Unator-controls'),
                 scanLog: container.querySelector('#scanLog'),
                 statsBar: container.querySelector('.M3Unator-stats-bar'),
@@ -431,9 +457,11 @@
                 if (log.classList.contains('expanded')) {
                     log.classList.remove('expanded');
                     toggle.classList.remove('active');
+                    this.cancelScheduledLogUiUpdate();
                 } else {
                     log.classList.add('expanded');
                     toggle.classList.add('active');
+                    this.renderLogEntries(log);
                     log.scrollTop = log.scrollHeight;
                 }
             });
