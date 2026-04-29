@@ -22,7 +22,6 @@
   <a href="#features"><img src="https://img.shields.io/badge/-Features-blue?style=for-the-badge" alt="Features"></a>
   <a href="#usage"><img src="https://img.shields.io/badge/-Usage-orange?style=for-the-badge" alt="Usage"></a>
   <a href="#supported-formats"><img src="https://img.shields.io/badge/-Formats-red?style=for-the-badge" alt="Formats"></a>
-  <a href="#development"><img src="https://img.shields.io/badge/-Development-gray?style=for-the-badge" alt="Development"></a>
 </p>
 
 </div>
@@ -174,12 +173,6 @@ It also includes heuristics for similar index pages, but it intentionally avoids
 | Edge | Supported | Chromium-based Edge is supported |
 | Opera | Supported | Chromium-based Opera is supported |
 | Safari | Limited | Userscript manager support can vary |
-
-## Development
-
-See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture details and supported formats.
-
-For manual testing guidance, see [tests/manual_testing_guide.md](tests/manual_testing_guide.md).
 
 ## Project Documentation
 
