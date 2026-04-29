@@ -2733,17 +2733,34 @@
                                 <button type="button" class="M3Unator-info-close" aria-label="Close About">${this.icons.close}</button>
                             </div>
                             <div class="M3Unator-info-modal-body">
-                                <p><strong>🎬 Web Directory Playlist Creator</strong></p>
-                                <p>📂 Scan supported directory listings for video and audio files, then export clean <code>.m3u</code> or <code>.m3u8</code> playlists.</p>
-                                <h4>Features</h4>
+                                <p><strong>Web Directory Playlist Creator</strong></p>
+                                <p>Scan supported directory listings for video and audio files, then export <code>.m3u</code> or <code>.m3u8</code> playlists.</p>
+                                <h4>Playlist Generation</h4>
                                 <ul>
-                                    <li>🎥 Video and 🎵 audio detection</li>
-                                    <li>🗂️ Recursive scan with depth control</li>
-                                    <li>⏯️ Pause, resume, and cancel controls</li>
-                                    <li>🌐 Apache, Nginx, LiteSpeed, Lighttpd, IIS, and Caddy support</li>
+                                    <li>Extended M3U and UTF-8 M3U8 export</li>
+                                    <li>Optional IPTV <code>group-title</code> metadata</li>
+                                    <li>Readable nested path labels in titles</li>
+                                    <li>Duplicate entry prevention across batches</li>
                                 </ul>
-                                <p>🔒 Runs locally in your browser. No upload.</p>
-                                <p>🔗 <a href="https://github.com/hasanbeder/M3Unator" target="_blank" rel="noopener noreferrer">GitHub repo</a></p>
+                                <h4>Media Detection</h4>
+                                <ul>
+                                    <li>33 video formats (MP4, MKV, MOV, ...)</li>
+                                    <li>41 audio formats (MP3, FLAC, M4A, ...)</li>
+                                    <li>International filename support via URL decoding</li>
+                                </ul>
+                                <h4>Directory Scanning</h4>
+                                <ul>
+                                    <li>Current directory or recursive (depth 1-99)</li>
+                                    <li>Adaptive concurrency: 4-12 normal, 6-20 aggressive</li>
+                                    <li>Seen-URL deduplication cache</li>
+                                    <li>Pause, resume, and cancel controls</li>
+                                </ul>
+                                <h4>Supported Servers</h4>
+                                <ul>
+                                    <li>Apache, Nginx, LiteSpeed, Lighttpd, IIS, Caddy</li>
+                                </ul>
+                                <p>Runs locally in your browser. No data uploaded.</p>
+                                <p><a href="https://github.com/hasanbeder/M3Unator" target="_blank" rel="noopener noreferrer">GitHub</a> | <a href="https://greasyfork.org/en/scripts/521593-m3unator-web-directory-playlist-creator" target="_blank" rel="noopener noreferrer">Greasy Fork</a></p>
                             </div>
                         </div>
                     </div>
