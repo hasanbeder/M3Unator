@@ -1,9 +1,8 @@
 # Contributing to M3Unator
 
 ## Development Setup
-- Updated build requirements
-- Enhanced testing environment
-- Performance monitoring tools
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture details and project structure.
 
 ## Code Standards
 - Class-based architecture
@@ -12,10 +11,8 @@
 - Performance optimization guidelines
 
 ## Testing Guidelines
-- Performance benchmark tests
-- Memory usage tests
-- Web server compatibility tests
-- Character encoding tests
+
+See [tests/manual_testing_guide.md](tests/manual_testing_guide.md) for QA scenarios covering scan controls, format export, depth limits, and edge cases.
 
 Thank you for your interest in contributing to M3Unator! This document provides guidelines and instructions for contributing to the project.
 

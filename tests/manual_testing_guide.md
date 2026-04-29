@@ -1,6 +1,6 @@
-# M3Unator Manual Testing Guide (v1.0.2)
+# M3Unator Manual Testing Guide (v1.1.0)
 
-This document outlines the manual testing procedures for the M3Unator userscript version 1.0.2.
+This document outlines the manual testing procedures for the M3Unator userscript version 1.1.0.
 
 ## Pre-Flight Checks
 
@@ -68,8 +68,9 @@ Optional extended matrix:
 ## Core System Tests
 
 ### 1. Ultrafast Scanning System
-- Verify 15 concurrent requests are working
-- Check batch processing (20 requests/batch)
+- Verify adaptive directory request concurrency starts at 4 and can scale up to 12 in normal mode
+- Verify aggressive mode starts at 6 and can scale up to 20 while adaptive throttling remains active
+- Check file processing batches of 100 entries and confirm duplicate URLs are not emitted across batch boundaries
 - Monitor memory optimization
 - Test cache system performance
 - Verify scanning speed improvements
@@ -116,6 +117,8 @@ Optional extended matrix:
 - Verify activity indicators
 - Verify `Recent Activity` shows its counter badge and status dot even on short successful scans
 - Verify `Recent Activity` renders on short scans and does not stay empty after successful completion
+- Verify group title appears beside the file format control only after a playlist name is entered
+- Verify aggressive scan is available as a compact switch inside the Create Playlist action
 
 ### 3. Progress Tracking
 - Monitor scanning progress
@@ -147,6 +150,8 @@ Optional extended matrix:
 - Verify file path handling
 - Test playlist organization
 - Verify nested directory scans keep readable relative path labels in exported `#EXTINF` titles
+- Verify empty IPTV group title keeps the standard `#EXTINF:-1,Title` output
+- Verify a filled IPTV group title emits `#EXTINF:-1 group-title="Name",Title` for every item
 
 ## Security Tests
 
@@ -159,7 +164,7 @@ Optional extended matrix:
 
 ### 2. Rate Limiting
 - Test request rate limits
-- Verify concurrent request limits
+- Verify normal and aggressive adaptive concurrent request limits
 - Check retry mechanism
 - Test exponential backoff
 - Monitor request queuing
@@ -184,7 +189,7 @@ Optional extended matrix:
 ### 2. Resource Management
 - Monitor cache effectiveness
 - Verify memory cleanup
-- Test parallel processing
+- Test adaptive parallel processing in normal and aggressive modes
 - Check response handling
 - Monitor system resources
 

@@ -4,17 +4,16 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.0.2   | :white_check_mark: |
-| 1.0.1   | :x:                |
+| 1.1.0   | :white_check_mark: |
+| 1.0.2   | :x:                |
 
 ## Security Features
 
-- Enhanced URL validation
-- Improved character encoding security
-- XSS protection
-- Secure file handling
-- Rate limiting implementation
-- Smart retry mechanism
+- URL validation and normalization before scanning
+- HTML entity and percent-encoding decode with malformed-input fallback
+- TextContent-based DOM creation (no innerHTML injection)
+- Input sanitization for playlist names
+- Playlist metadata escaping for safer output
 
 ## Reporting a Vulnerability
 
@@ -50,9 +49,8 @@ Please include:
 - Report suspicious behavior immediately
 
 ### Technical Details
-- All operations are performed client-side
-- No external data transmission
-- File system access is limited to selected directories
+- All operations are performed client-side in the browser
+- No external data transmission — playlists and scanned URLs never leave the browser
 - No sensitive data is collected or stored
 
 ## Contact

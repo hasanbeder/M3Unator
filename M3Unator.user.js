@@ -781,82 +781,18 @@
             padding-right: 60px;
         }
 
-        .M3Unator-aggressive-control {
-            position: absolute;
-            top: 50%;
-            right: 10px;
-            transform: translateY(-50%);
-            width: 42px;
-            height: 24px;
-            display: grid;
-            place-items: center;
-            cursor: pointer;
-            z-index: 2;
+        .M3Unator-toggle-aggressive input[type="checkbox"]:checked + span {
+            background: rgba(243, 139, 168, 0.12);
+            border-color: #f38ba8;
+            box-shadow: 0 0 20px rgba(243, 139, 168, 0.2);
         }
 
-        .M3Unator-aggressive-control input[type="checkbox"] {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
+        .M3Unator-toggle-aggressive input[type="checkbox"]:checked + span:hover {
+            background: rgba(243, 139, 168, 0.18);
         }
 
-        .M3Unator-aggressive-switch {
-            position: relative;
-            width: 38px;
-            height: 22px;
-            border-radius: 999px;
-            background: rgba(30, 30, 46, 0.42);
-            border: 1px solid rgba(30, 30, 46, 0.34);
-            box-shadow: 0 0 0 1px rgba(17, 17, 27, 0.12) inset;
-            transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-        }
-
-        .M3Unator-aggressive-knob {
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 14px;
-            height: 14px;
-            border-radius: 999px;
-            background: #cdd6f4;
-            box-shadow: 0 2px 5px rgba(17, 17, 27, 0.35);
-            transition: transform 0.18s ease, background 0.18s ease;
-        }
-
-        .M3Unator-aggressive-control:hover .M3Unator-aggressive-switch,
-        .M3Unator-aggressive-control:focus-within .M3Unator-aggressive-switch {
-            box-shadow: 0 0 0 2px rgba(30, 30, 46, 0.18), 0 0 12px rgba(17, 17, 27, 0.18);
-        }
-
-        .M3Unator-aggressive-control input[type="checkbox"]:checked + .M3Unator-aggressive-switch {
-            background: rgba(250, 179, 135, 0.38);
-            border-color: rgba(250, 179, 135, 0.92);
-            box-shadow: 0 0 12px rgba(250, 179, 135, 0.24);
-        }
-
-        .M3Unator-aggressive-control input[type="checkbox"]:checked + .M3Unator-aggressive-switch .M3Unator-aggressive-knob {
-            transform: translateX(16px);
-            background: #fff4dc;
-        }
-
-        .M3Unator-button {
-            width: 100%;
-            height: 42px;
-            min-height: 42px;
-            padding: 0 16px;
-            border: none;
-            border-radius: 8px;
-            background: #f5c2e7;
-            color: #1e1e2e;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            line-height: 1;
+        .M3Unator-toggle-aggressive input[type="checkbox"]:checked + span svg {
+            color: #f38ba8;
         }
 
         .M3Unator-button:hover {
@@ -914,12 +850,6 @@
             font-weight: 600;
             font-size: 0.95rem;
             line-height: 1;
-        }
-
-        @keyframes gradient {
-            0% { background-position: 0% 50%; filter: hue-rotate(0deg); }
-            50% { background-position: 100% 50%; filter: hue-rotate(180deg); }
-            100% { background-position: 0% 50%; filter: hue-rotate(360deg); }
         }
 
         .M3Unator-dropdown {
@@ -1039,24 +969,8 @@
             to { transform: translateY(0); opacity: 1; }
         }
 
-        .M3Unator-log {
-            margin-top: 0.75rem;
-            max-height: calc(100vh - 70vh);
-            font-size: 0.8125rem;
-            line-height: 1.4;
-        }
-
         .M3Unator-log:empty {
             display: none;
-        }
-
-        .M3Unator-log-entry {
-            padding: 0.25rem 0.5rem;
-            border-bottom: 1px solid #313244;
-        }
-
-        .M3Unator-log-entry:last-child {
-            border-bottom: none;
         }
 
         .M3Unator-log-entry.success {
@@ -1128,33 +1042,6 @@
             }
         }
 
-        .M3Unator-controls {
-            display: none;
-            gap: 0.75rem;
-            margin: 0.75rem 0;
-            justify-content: center;
-        }
-
-        .M3Unator-controls.active {
-            display: flex;
-        }
-
-        .M3Unator-control-btn {
-            display: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            align-items: center;
-            gap: 0.75rem;
-            min-width: 160px;
-            justify-content: center;
-            background: rgba(30, 30, 46, 0.6);
-            backdrop-filter: blur(8px);
-            width: 160px;
-        }
-
         .M3Unator-control-btn:hover {
             background: #313244;
             transform: translateY(-1px);
@@ -1214,17 +1101,6 @@
             height: 48px;
             min-height: 48px;
             line-height: 1;
-        }
-
-        .M3Unator-spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(17, 17, 27, 0.3);
-            border-radius: 50%;
-            border-top-color: #11111b;
-            animation: spin 0.6s linear infinite;
-            margin-right: 0;
-            flex-shrink: 0;
         }
 
         .M3Unator-toast-container {
@@ -1655,96 +1531,6 @@
             overflow: hidden;
         }
 
-        .M3Unator-log-toggle {
-            width: 100%;
-            padding: 0.625rem 0.75rem;
-            background: rgba(17, 17, 27, 0.55);
-            border: 1px solid rgba(69, 71, 90, 0.6);
-            color: #cdd6f4;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-            font-size: 0.875rem;
-            font-weight: 500;
-            border-radius: 6px;
-        }
-
-        .M3Unator-log-toggle:hover {
-            background: rgba(24, 24, 37, 0.78);
-            border-color: rgba(137, 180, 250, 0.22);
-        }
-
-        .M3Unator-activity-indicator {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #45475a;  /* Darker gray */
-            margin-left: 0;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .M3Unator-activity-indicator.active {
-            background: #89dceb;  /* Brighter blue */
-            box-shadow: 0 0 0 3px rgba(137, 220, 235, 0.2);
-            animation: pulseActive 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-
-        .M3Unator-activity-indicator.paused {
-            background: #f9e2af;  /* More visible yellow */
-            box-shadow: 0 0 0 3px rgba(249, 226, 175, 0.2);
-        }
-
-        .M3Unator-activity-indicator.error {
-            background: #f38ba8;  /* Current red is good */
-            box-shadow: 0 0 0 3px rgba(243, 139, 168, 0.2);
-        }
-
-        .M3Unator-activity-indicator.completed {
-            background: #94e2d5;  /* Brighter green-turquoise */
-            box-shadow: 0 0 0 3px rgba(148, 226, 213, 0.2);
-        }
-
-        @keyframes pulseActive {
-            0% {
-                box-shadow: 0 0 0 0 rgba(137, 220, 235, 0.4);
-            }
-            70% {
-                box-shadow: 0 0 0 8px rgba(137, 220, 235, 0);
-            }
-            100% {
-                box-shadow: 0 0 0 0 rgba(137, 220, 235, 0);
-            }
-        }
-
-        @keyframes pulsePaused {
-            0% {
-                box-shadow: 0 0 0 0 rgba(249, 226, 175, 0.4);
-            }
-            70% {
-                box-shadow: 0 0 0 8px rgba(249, 226, 175, 0);
-            }
-            100% {
-                box-shadow: 0 0 0 0 rgba(249, 226, 175, 0);
-            }
-        }
-
-        @keyframes completeScale {
-            0% {
-                transform: scale(0.8);
-                opacity: 0.5;
-            }
-            50% {
-                transform: scale(1.2);
-            }
-            100% {
-                transform: scale(1);
-                opacity: 1;
-            }
-        }
-
         .M3Unator-toggle-container span svg .infinity-icon {
             opacity: 0.5;
             transition: opacity 0.2s ease;
@@ -1826,15 +1612,6 @@
             border-radius: 50%;
             background: #cba6f7;
             position: absolute;
-        }
-
-        .M3Unator-radio .radio-label {
-            color: #cdd6f4;
-            font-size: 0.875rem;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
         }
 
         .M3Unator-depth-input {
@@ -2428,16 +2205,16 @@
             this.maxSize = maxSize;
             this.logs = [];
             this.stats = {
-                totalLogs: 0,
+                nextSequence: 0,
                 skippedLogs: 0
             };
         }
 
         add(message, type = '') {
-            const sequence = this.stats.totalLogs + 1;
+            const sequence = this.stats.nextSequence + 1;
             const timestamp = new Date().toLocaleTimeString();
             this.logs.push({ message, type, timestamp, sequence });
-            this.stats.totalLogs = sequence;
+            this.stats.nextSequence = sequence;
 
             if (this.logs.length > this.maxSize) {
                 this.logs.shift();
@@ -2454,7 +2231,7 @@
 
         clear() {
             this.logs = [];
-            this.stats.totalLogs = 0;
+            this.stats.nextSequence = 0;
             this.stats.skippedLogs = 0;
         }
     }
@@ -2651,6 +2428,7 @@
             this.seenUrlOrder = [];
             this.scanAbortController = null;
             this.scanPerformance = this.createInitialScanPerformance();
+            this.activeScanPromise = null;
             this.toastQueue = [];
             this.isProcessingToast = false;
         }
@@ -3017,25 +2795,26 @@
 
                         <div class="M3Unator-depth-controls">
                             <div class="M3Unator-radio-group">
-                                <label class="M3Unator-radio">
-                                    <input type="radio" name="depthType" value="current" id="currentDepth">
+                                <label class="M3Unator-radio" for="currentDepth">
+                                    <input type="radio" name="depthType" value="current" id="currentDepth" aria-label="Current directory only">
                                     <span class="radio-mark"></span>
                                     <span class="radio-label">Current directory</span>
                                 </label>
-                                <label class="M3Unator-radio">
-                                    <input type="radio" name="depthType" value="custom" id="customDepth">
+                                <label class="M3Unator-radio" for="customDepth">
+                                    <input type="radio" name="depthType" value="custom" id="customDepth" aria-label="Custom scan depth">
                                     <span class="radio-mark"></span>
                                     <span class="radio-label">Custom depth:</span>
-                                    <input type="number" 
-                                        id="maxDepth" 
-                                        value="1" 
-                                        min="1" 
-                                        max="99" 
+                                    <input type="number"
+                                        id="maxDepth"
+                                        value="1"
+                                        min="1"
+                                        max="99"
                                         class="M3Unator-depth-input"
-                                        title="Subdirectory scan depth" 
+                                        title="Subdirectory scan depth"
                                         style="width: 64px;"
                                         inputmode="numeric"
-                                        pattern="[0-9]*">
+                                        pattern="[0-9]*"
+                                        aria-label="Subdirectory scan depth">
                                 </label>
                             </div>
                         </div>
@@ -3045,12 +2824,6 @@
                                 ${this.icons.download}
                                 <span>Create Playlist</span>
                             </button>
-                            <label class="M3Unator-aggressive-control" title="Fast scan: higher parallel requests for trusted servers" aria-label="Fast scan">
-                                <input type="checkbox" id="aggressiveMode">
-                                <span class="M3Unator-aggressive-switch" aria-hidden="true">
-                                    <span class="M3Unator-aggressive-knob"></span>
-                                </span>
-                            </label>
                         </div>
 
                         <div class="M3Unator-controls">
@@ -3114,6 +2887,15 @@
                     meta: 'Recursive scan',
                     icon: this.icons.folder,
                     checked: true
+                },
+                {
+                    id: 'aggressiveMode',
+                    title: 'Fast mode: up to 20 parallel requests (Safe: up to 12)',
+                    label: 'Fast',
+                    meta: 'Aggressive scan',
+                    icon: this.icons.aggressive,
+                    checked: false,
+                    className: 'M3Unator-toggle-aggressive'
                 }
             ]
                 .map(props => this.createComponent('toggle', props))
@@ -3449,6 +3231,10 @@
                     initialY = pos.y - yOffset;
 
                     handle.style.cursor = 'grabbing';
+                    document.addEventListener('mousemove', drag);
+                    document.addEventListener('mouseup', dragEnd);
+                    document.addEventListener('touchmove', drag, { passive: false });
+                    document.addEventListener('touchend', dragEnd);
                 }
             };
 
@@ -3479,16 +3265,15 @@
                 if (isDragging) {
                     isDragging = false;
                     handle.style.cursor = 'grab';
+                    document.removeEventListener('mousemove', drag);
+                    document.removeEventListener('mouseup', dragEnd);
+                    document.removeEventListener('touchmove', drag);
+                    document.removeEventListener('touchend', dragEnd);
                 }
             };
 
             handle.addEventListener('mousedown', dragStart);
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('mouseup', dragEnd);
-
             handle.addEventListener('touchstart', dragStart, { passive: false });
-            document.addEventListener('touchmove', drag, { passive: false });
-            document.addEventListener('touchend', dragEnd);
 
             window.addEventListener('resize', () => {
                 if (!isDragging) {
@@ -3528,8 +3313,12 @@
         createToastElement(message, type) {
             const toast = document.createElement('div');
             toast.className = `M3Unator-toast ${type}`;
-            const icon = this.icons[type] || this.icons.info;
-            toast.innerHTML = `${icon}<span>${message}</span>`;
+            const iconSpan = document.createElement('span');
+            iconSpan.innerHTML = this.icons[type] || this.icons.info;
+            const messageSpan = document.createElement('span');
+            messageSpan.textContent = message;
+            toast.appendChild(iconSpan);
+            toast.appendChild(messageSpan);
             return toast;
         }
 
@@ -3817,7 +3606,9 @@
 
             customDepth.addEventListener('change', event => {
                 if (event.target.checked && !recursiveSearch.checked) {
-                    const depthValue = parseInt(maxDepth.value) || 1;
+                    const rawValue = parseInt(maxDepth.value) || 1;
+                    const depthValue = Math.min(99, Math.max(1, rawValue));
+                    maxDepth.value = depthValue;
                     this.state.maxDepth = depthValue;
                     maxDepth.disabled = false;
                     this.addLogEntry(
@@ -3873,15 +3664,28 @@
         }
 
         handleCancelScan() {
+            const wasGenerating = this.state.isGenerating;
             this.state.isGenerating = false;
             this.state.isPaused = false;
             this.abortScanSession();
             this.updateActivityIndicator('cancelled');
 
-            setTimeout(() => {
+            if (!wasGenerating) return;
+
+            const settleAndReset = () => {
                 this.reset({ isCancelled: true, enableToggles: true });
                 this.showToast('Scan cancelled', 'warning');
-            }, 100);
+            };
+
+            if (this.activeScanPromise) {
+                const scanPromise = this.activeScanPromise;
+                this.activeScanPromise = null;
+                Promise.race([scanPromise.catch(() => {}), new Promise(resolve => setTimeout(resolve, 2000))]).finally(
+                    settleAndReset
+                );
+            } else {
+                settleAndReset();
+            }
         }
 
         clearLogSessionState() {
@@ -3977,7 +3781,9 @@
                 this.startScanSession();
                 this.prepareScanRunUi(generateBtn, controls, pauseBtn, resumeBtn, cancelBtn);
 
-                const entries = await this.scanDirectory(window.location.href, '', 0);
+                this.activeScanPromise = this.scanDirectory(window.location.href, '', 0);
+                const entries = await this.activeScanPromise;
+                this.activeScanPromise = null;
 
                 if (!this.state.isGenerating) {
                     return;
@@ -4259,7 +4065,7 @@
         }
 
         getHttpStatusFromError(error) {
-            return error.message.match(/\d+/)?.[0] || null;
+            return error.message.match(/\b\d{3}\b/)?.[0] || null;
         }
 
         getHttpErrorUserMessage(status) {
@@ -4537,7 +4343,7 @@
                 } catch (error) {
                     lastError = error;
 
-                    if (error.name === 'AbortError' && options.signal && options.signal.aborted) {
+                    if (error.name === 'AbortError') {
                         throw error;
                     }
 
@@ -4716,7 +4522,8 @@
         }
 
         normalizeUrl(url) {
-            const normalized = url.replace(/([^:]\/)\/+/g, '$1');
+            const trimmed = url.trimEnd();
+            const normalized = trimmed.replace(/([^:]\/)\/+/g, '$1');
             return normalized.endsWith('/') ? normalized : `${normalized}/`;
         }
 
@@ -5357,6 +5164,10 @@
                         (mediaType === 'audio' && this.state.includeAudio));
 
                 if (shouldIncludeMedia) {
+                    if (this.entries.length >= this.state.maxEntries) {
+                        return;
+                    }
+
                     if (mediaType === 'video') {
                         this.updateFileStats('video');
                     } else {
@@ -5495,6 +5306,7 @@
             }
 
             const samples = performanceState.requestSamples;
+            if (samples.length === 0) return;
             const failedSamples = samples.filter(entry => !entry.ok || entry.timedOut);
             const averageLatency = samples.reduce((total, entry) => total + entry.duration, 0) / samples.length;
             const errorRate = failedSamples.length / samples.length;
@@ -5563,12 +5375,12 @@
         }
 
         async scanSubdirectoryQueue(directories, normalizedUrl, currentPath, depth) {
-            const parallelLimit = 15;
             const activeRequests = new Set();
             let queueIndex = 0;
+            const concurrency = this.getCurrentScanConcurrency();
 
             while (queueIndex < directories.length || activeRequests.size > 0) {
-                while (queueIndex < directories.length && activeRequests.size < parallelLimit) {
+                while (queueIndex < directories.length && activeRequests.size < concurrency) {
                     const dir = directories[queueIndex];
                     queueIndex++;
                     this.queueSubdirectoryScan(dir, normalizedUrl, currentPath, depth, activeRequests);
@@ -5812,7 +5624,10 @@
         }
 
         shouldSkipLogEntry(type) {
-            return (this.state.isPaused || !this.state.isGenerating) && type !== 'final';
+            if (type === 'final' || type === 'error') {
+                return false;
+            }
+            return this.state.isPaused || !this.state.isGenerating;
         }
 
         decodeUrlInLogMessage(url) {
@@ -5856,7 +5671,7 @@
         syncLogCounter() {
             const logCounter = this.domElements.logCounter;
             if (logCounter) {
-                const totalLogs = String(this.logCache.stats.totalLogs);
+                const totalLogs = String(this.logCache.stats.nextSequence);
                 if (logCounter.textContent !== totalLogs) {
                     logCounter.textContent = totalLogs;
                 }
@@ -6026,7 +5841,7 @@
                 '',
                 '📝 Log Statistics',
                 '───────────────',
-                `Total Logs: ${logCache.stats.totalLogs}`,
+                `Total Logs: ${logCache.stats.nextSequence}`,
                 logCache.stats.skippedLogs > 0 ? `Skipped Logs: ${logCache.stats.skippedLogs}` : null,
                 '',
                 `🔍 Last ${logCache.maxSize} Log Entries`,
