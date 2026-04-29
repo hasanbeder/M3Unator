@@ -183,11 +183,7 @@ For manual testing guidance, see [tests/manual_testing_guide.md](tests/manual_te
 
 ## Project Documentation
 
-- [Development Guide](DEVELOPMENT.md)
-- [Manual Testing Guide](tests/manual_testing_guide.md)
 - [Changelog](CHANGELOG.md)
-- [Security Policy](SECURITY.md)
-- [Contributing Guide](CONTRIBUTING.md)
 - [Wiki](https://github.com/hasanbeder/M3Unator/wiki)
 
 ## FAQ
