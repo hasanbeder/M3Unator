@@ -4,7 +4,7 @@
 // @version      1.1.0
 // @description  Create M3U/M3U8 playlists from directory listing pages. Automatically finds video and audio files in web server indexes with optional IPTV group titles.
 // @author       Hasan Beder
-// @license      GPL-3.0
+// @license      GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @match        *://*/*
 // @grant        GM_addStyle
 // @icon         data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmNWMyZTciIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWdvbiBwb2ludHM9IjIzIDcgMTYgMTIgMjMgMTcgMjMgNyIvPjxyZWN0IHg9IjEiIHk9IjUiIHdpZHRoPSIxNSIgaGVpZ2h0PSIxNCIgcng9IjIiIHJ5PSIyIi8+PC9zdmc+
