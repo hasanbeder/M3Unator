@@ -752,14 +752,22 @@
             transform: translateY(-50%);
             width: 0;
             opacity: 0;
-            overflow: hidden;
+            overflow: visible;
             transition: width 0.25s ease, opacity 0.2s ease, right 0.25s ease;
             z-index: 10;
+            pointer-events: none;
         }
 
         .M3Unator-group-title-inline.is-visible {
-            width: 160px;
+            width: 170px;
             opacity: 1;
+            pointer-events: auto;
+        }
+
+        .M3Unator-group-title-inline {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .M3Unator-group-title-inline .M3Unator-group-title-input {
@@ -767,11 +775,54 @@
             height: 34px;
             min-height: 34px;
             font-size: 0.82rem;
-            padding: 4px 8px;
+            padding: 4px 32px 4px 8px;
             border-radius: 4px;
             box-sizing: border-box;
             background: #1e1e2e;
             border: 1px solid rgba(69, 71, 90, 0.6);
+        }
+
+        .M3Unator-group-title-inline .M3Unator-group-title-input {
+            flex: 1 1 auto;
+        }
+
+        .M3Unator-group-title-inline .M3Unator-group-title-input.is-first-folder {
+            color: #89d8eb;
+            border-color: rgba(137, 220, 235, 0.55);
+            background: rgba(137, 220, 235, 0.08);
+        }
+
+        .M3Unator-group-title-mode-button {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 26px;
+            height: 26px;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: #6c7086;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .M3Unator-group-title-mode-button:hover,
+        .M3Unator-group-title-mode-button.active {
+            color: #cdd6f4;
+            background: rgba(205, 214, 244, 0.08);
+        }
+
+        .M3Unator-group-title-mode-button.active {
+            color: #89d8eb;
+            background: rgba(137, 220, 235, 0.12);
+        }
+
+        .M3Unator-group-title-mode-button svg {
+            width: 14px;
+            height: 14px;
         }
 
         .M3Unator-generate-row {
@@ -2069,6 +2120,8 @@
                 includeAudio: false,
                 aggressiveMode: false,
                 groupTitle: '',
+                groupTitleMode: 'manual',
+                maxGroupTitleLength: 60,
                 maxEntries: 1000000,
                 timeoutMs: 12000,
                 retryCount: 2,
@@ -2353,6 +2406,7 @@
                                 <ul>
                                     <li>M3U &amp; UTF-8 M3U8 export</li>
                                     <li>IPTV <code>group-title</code> metadata</li>
+                                    <li>First folder IPTV categories</li>
                                     <li>Nested path labels in titles</li>
                                     <li>Duplicate entry prevention</li>
                                 </ul>
@@ -2408,11 +2462,14 @@
                                     <input type="text"
                                         id="groupTitle"
                                         class="M3Unator-input M3Unator-group-title-input"
-                                        placeholder="Group title"
+                                        placeholder="Group Title"
                                         spellcheck="false"
                                         autocomplete="off"
                                         autocorrect="off"
                                         autocapitalize="off">
+                                    <button type="button" class="M3Unator-group-title-mode-button" id="groupTitleModeButton" aria-label="Use first folder as IPTV category" title="Use first folder as IPTV category" disabled>
+                                        ${this.icons.folder}
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -2645,6 +2702,7 @@
                 groupTitleToggle: container.querySelector('#groupTitleToggle'),
                 groupTitlePanel: container.querySelector('#groupTitlePanel'),
                 groupTitle: container.querySelector('#groupTitle'),
+                groupTitleModeButton: container.querySelector('#groupTitleModeButton'),
                 controls: container.querySelector('.M3Unator-controls'),
                 scanLog: container.querySelector('#scanLog'),
                 statsBar: container.querySelector('.M3Unator-stats-bar'),
@@ -3007,11 +3065,17 @@
             this.state.includeAudio = true;
             this.state.aggressiveMode = false;
             this.state.groupTitle = '';
+            this.state.groupTitleMode = 'manual';
 
-            const { groupTitle, groupTitleToggle, groupTitlePanel } = this.domElements;
+            const { groupTitle, groupTitleToggle, groupTitlePanel, groupTitleModeButton } = this.domElements;
             if (groupTitle) {
                 groupTitle.disabled = true;
                 groupTitle.value = '';
+                this.syncGroupTitleInputState();
+            }
+            if (groupTitleModeButton) {
+                groupTitleModeButton.disabled = true;
+                this.syncGroupTitleModeButtonState();
             }
             if (groupTitleToggle) {
                 groupTitleToggle.classList.remove('active');
@@ -3049,7 +3113,11 @@
                     if (groupTitle) {
                         groupTitle.value = '';
                         groupTitle.disabled = true;
-                        this.state.groupTitle = '';
+                        this.syncGroupTitleInputState();
+                    }
+                    if (this.domElements.groupTitleModeButton) {
+                        this.domElements.groupTitleModeButton.disabled = true;
+                        this.syncGroupTitleModeButtonState();
                     }
                     groupTitleToggle.classList.remove('active');
                     groupTitleToggle.setAttribute('aria-expanded', 'false');
@@ -3067,15 +3135,51 @@
             const hasGroupTitle = groupTitlePanel && groupTitlePanel.classList.contains('is-visible');
 
             if (!hasDropdown) {
-                playlistInput.style.paddingRight = '';
+                if (playlistInput.style) {
+                    playlistInput.style.paddingRight = '';
+                }
                 return;
             }
 
-            if (hasGroupTitle) {
-                playlistInput.style.paddingRight = '284px';
-            } else {
-                playlistInput.style.paddingRight = '120px';
+            if (playlistInput.style) {
+                playlistInput.style.paddingRight = hasGroupTitle ? '294px' : '120px';
             }
+        }
+
+        isGroupTitlePanelOpen() {
+            const { groupTitlePanel } = this.domElements;
+            return Boolean(groupTitlePanel && groupTitlePanel.classList.contains('is-visible'));
+        }
+
+        isGroupTitleInputBlank() {
+            const { groupTitle } = this.domElements;
+            return !groupTitle || !groupTitle.value.trim();
+        }
+
+        collapseUnusedGroupTitlePanel() {
+            const { dropdown, groupTitle, groupTitlePanel, groupTitleToggle, groupTitleModeButton } = this.domElements;
+            if (!this.isGroupTitlePanelOpen() || !this.isGroupTitleInputBlank()) {
+                return;
+            }
+
+            groupTitlePanel.classList.remove('is-visible');
+            groupTitlePanel.setAttribute('aria-hidden', 'true');
+            if (groupTitleToggle) {
+                groupTitleToggle.classList.remove('active');
+                groupTitleToggle.setAttribute('aria-expanded', 'false');
+            }
+            if (groupTitle) {
+                groupTitle.disabled = true;
+                this.syncGroupTitleInputState();
+            }
+            if (groupTitleModeButton) {
+                groupTitleModeButton.disabled = true;
+            }
+            if (dropdown) {
+                dropdown.style.right = '';
+            }
+            this.syncGroupTitleModeButtonState();
+            this.updatePlaylistInputPadding();
         }
 
         bindPlaylistInputHandlers(playlistInput, dropdown, dropdownButton) {
@@ -3084,6 +3188,8 @@
             };
 
             playlistInput.addEventListener('input', syncVisibility);
+            playlistInput.addEventListener('input', () => this.collapseUnusedGroupTitlePanel());
+            playlistInput.addEventListener('focus', () => this.collapseUnusedGroupTitlePanel());
             playlistInput.addEventListener('change', syncVisibility);
             syncVisibility();
         }
@@ -3183,12 +3289,91 @@
             }
 
             const syncGroupTitle = () => {
-                this.state.groupTitle = groupTitle.value.trim();
+                this.syncGroupTitleInputState();
+            };
+            const prepareGroupTitleEdit = () => {
+                if (typeof groupTitle.select === 'function') {
+                    groupTitle.select();
+                }
+            };
+            const clearAutomaticGroupTitleForEdit = event => {
+                const isEditingKey = event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete';
+
+                if (isEditingKey && groupTitle.value.trim().toLowerCase() === 'first folder') {
+                    groupTitle.value = '';
+                    this.syncGroupTitleInputState();
+                }
             };
 
             groupTitle.addEventListener('input', syncGroupTitle);
             groupTitle.addEventListener('change', syncGroupTitle);
+            groupTitle.addEventListener('keydown', clearAutomaticGroupTitleForEdit);
+            groupTitle.addEventListener('focus', prepareGroupTitleEdit);
+            groupTitle.addEventListener('blur', syncGroupTitle);
             syncGroupTitle();
+        }
+
+        syncGroupTitleInputState() {
+            const { groupTitle } = this.domElements;
+            if (!groupTitle) {
+                return;
+            }
+
+            const rawValue = groupTitle.value.trim();
+            const normalizedValue = rawValue.toLowerCase();
+            groupTitle.classList.remove('is-first-folder');
+
+            if (!rawValue) {
+                this.state.groupTitleMode = 'manual';
+                this.state.groupTitle = '';
+                this.syncGroupTitleModeButtonState();
+                return;
+            }
+
+            if (normalizedValue === 'first folder') {
+                this.state.groupTitleMode = 'first-folder';
+                this.state.groupTitle = '';
+                groupTitle.classList.add('is-first-folder');
+                this.syncGroupTitleModeButtonState();
+                return;
+            }
+
+            this.state.groupTitleMode = 'manual';
+            this.state.groupTitle = rawValue;
+            this.syncGroupTitleModeButtonState();
+        }
+
+        syncGroupTitleModeButtonState() {
+            const { groupTitleModeButton } = this.domElements;
+            if (!groupTitleModeButton) {
+                return;
+            }
+
+            const isFirstFolder = this.getNormalizedGroupTitleMode() === 'first-folder';
+            groupTitleModeButton.classList.toggle('active', isFirstFolder);
+            groupTitleModeButton.setAttribute('aria-pressed', isFirstFolder ? 'true' : 'false');
+        }
+
+        toggleFirstFolderGroupTitle() {
+            const { groupTitle } = this.domElements;
+            if (!groupTitle) {
+                return;
+            }
+
+            groupTitle.value = this.getNormalizedGroupTitleMode() === 'first-folder' ? '' : 'First folder';
+            this.syncGroupTitleInputState();
+            groupTitle.focus();
+        }
+
+        bindGroupTitleModeButtonHandler(groupTitleModeButton) {
+            if (!groupTitleModeButton) {
+                return;
+            }
+
+            groupTitleModeButton.addEventListener('click', event => {
+                event.stopPropagation();
+                this.toggleFirstFolderGroupTitle();
+            });
         }
 
         bindGroupTitleToggleHandler(groupTitleToggle, groupTitlePanel, groupTitle) {
@@ -3208,7 +3393,7 @@
 
                 const dropdown = this.domElements.dropdown;
                 if (isOpen) {
-                    if (dropdown) dropdown.style.right = '208px';
+                    if (dropdown) dropdown.style.right = '218px';
                     groupTitlePanel.style.right = '44px';
                 } else {
                     if (dropdown) dropdown.style.right = '';
@@ -3219,11 +3404,18 @@
 
                 if (isOpen && groupTitle) {
                     groupTitle.disabled = false;
+                    if (this.domElements.groupTitleModeButton) {
+                        this.domElements.groupTitleModeButton.disabled = false;
+                    }
+                    this.syncGroupTitleInputState();
                     groupTitle.focus();
-                } else if (!isOpen && groupTitle) {
+                } else if (groupTitle) {
                     groupTitle.value = '';
                     groupTitle.disabled = true;
-                    this.state.groupTitle = '';
+                    if (this.domElements.groupTitleModeButton) {
+                        this.domElements.groupTitleModeButton.disabled = true;
+                    }
+                    this.syncGroupTitleInputState();
                 }
 
                 this.addLogEntry(
@@ -3404,7 +3596,13 @@
             if (this.domElements.groupTitle) {
                 this.domElements.groupTitle.disabled = true;
             }
-            this.domElements.playlistInput.disabled = true;
+            if (this.domElements.groupTitleModeButton) {
+                this.domElements.groupTitleModeButton.disabled = true;
+            }
+            this.syncGroupTitleModeButtonState();
+            if (this.domElements.playlistInput) {
+                this.domElements.playlistInput.disabled = true;
+            }
             this.domElements.currentDepth.disabled = true;
             this.domElements.customDepth.disabled = true;
             this.domElements.maxDepth.disabled = true;
@@ -3474,7 +3672,11 @@
                 this.addLogEntry(`Total ${entries.length} files found.`, 'success');
                 this.updateCounter(entries.length);
 
-                const downloadPayload = this.buildPlaylistDownloadPayload(entries, this.state.selectedFormat);
+                const downloadPayload = this.buildPlaylistDownloadPayload(
+                    entries,
+                    this.state.selectedFormat,
+                    playlistName
+                );
                 const fileName = `${playlistName}.${downloadPayload.extension}`;
                 this.downloadPlaylistFile(downloadPayload.content, fileName, downloadPayload.mimeType);
 
@@ -3540,6 +3742,7 @@
             this.bindMediaToggleHandlers(includeVideo, includeAudio);
             this.bindAggressiveModeHandler(aggressiveMode);
             this.bindGroupTitleHandler(groupTitle);
+            this.bindGroupTitleModeButtonHandler(this.domElements.groupTitleModeButton);
             this.bindGroupTitleToggleHandler(
                 this.domElements.groupTitleToggle,
                 this.domElements.groupTitlePanel,
@@ -3627,6 +3830,12 @@
                 const isPanelOpen =
                     elements.groupTitlePanel && elements.groupTitlePanel.classList.contains('is-visible');
                 elements.groupTitle.disabled = !isPanelOpen;
+            }
+
+            if (elements.groupTitleModeButton) {
+                const isPanelOpen =
+                    elements.groupTitlePanel && elements.groupTitlePanel.classList.contains('is-visible');
+                elements.groupTitleModeButton.disabled = !isPanelOpen;
             }
 
             if (elements.currentDepth) {
@@ -5184,6 +5393,64 @@
             return typeof this.state.groupTitle === 'string' ? this.state.groupTitle.trim() : '';
         }
 
+        getNormalizedGroupTitleMode() {
+            return typeof this.state.groupTitleMode === 'string' ? this.state.groupTitleMode : 'manual';
+        }
+
+        normalizeGroupTitleForOutput(value) {
+            const normalized = String(value || '')
+                .replace(/[\r\n]+/g, ' ')
+                .trim();
+            const maxLength = Number.isFinite(this.state.maxGroupTitleLength) ? this.state.maxGroupTitleLength : 60;
+
+            if (!normalized || normalized.length <= maxLength) {
+                return normalized;
+            }
+
+            if (maxLength <= 3) {
+                return normalized.slice(0, maxLength);
+            }
+
+            return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
+        }
+
+        buildFirstFolderPlaylistEntry(entry, playlistName = '') {
+            const pathParts = this.splitPathSegments(entry.decodedTitle).filter(Boolean);
+            const fallbackTitle = entry.decodedTitle;
+
+            if (pathParts.length <= 1) {
+                return {
+                    ...entry,
+                    decodedTitle: pathParts[0] || fallbackTitle,
+                    entryGroupTitle: this.normalizeGroupTitleForOutput(playlistName)
+                };
+            }
+
+            return {
+                ...entry,
+                decodedTitle: pathParts.slice(1).join('/') || fallbackTitle,
+                entryGroupTitle: this.normalizeGroupTitleForOutput(pathParts[0])
+            };
+        }
+
+        applyGroupTitleMode(entry, playlistName = '') {
+            const mode = this.getNormalizedGroupTitleMode();
+
+            if (mode === 'first-folder') {
+                return this.buildFirstFolderPlaylistEntry(entry, playlistName);
+            }
+
+            return entry;
+        }
+
+        resolvePlaylistEntryGroupTitle(entry) {
+            if (entry.entryGroupTitle) {
+                return entry.entryGroupTitle;
+            }
+
+            return this.getNormalizedGroupTitleMode() === 'manual' ? this.getNormalizedGroupTitle() : '';
+        }
+
         escapeM3uAttribute(value) {
             return String(value)
                 .replace(/\\/g, '\\\\')
@@ -5193,7 +5460,7 @@
         }
 
         buildExtinfLine(entry) {
-            const groupTitle = this.getNormalizedGroupTitle();
+            const groupTitle = this.resolvePlaylistEntryGroupTitle(entry);
             if (!groupTitle) {
                 return `#EXTINF:-1,${entry.decodedTitle}`;
             }
@@ -5235,15 +5502,17 @@
             };
         }
 
-        createPlaylist(entries) {
-            const decodedEntries = entries.map(entry => this.buildDecodedPlaylistEntry(entry));
+        createPlaylist(entries, options = {}) {
+            const decodedEntries = entries.map(entry =>
+                this.applyGroupTitleMode(this.buildDecodedPlaylistEntry(entry), options.playlistName)
+            );
             const sortedEntries = this.sortPlaylistEntries(decodedEntries);
             return `#EXTM3U\n${this.serializePlaylistEntries(sortedEntries)}`;
         }
 
-        buildPlaylistDownloadPayload(entries, format = this.state.selectedFormat) {
+        buildPlaylistDownloadPayload(entries, format = this.state.selectedFormat, playlistName = '') {
             const formatConfig = this.getPlaylistFormatConfig(format);
-            const playlistContent = this.createPlaylist(entries);
+            const playlistContent = this.createPlaylist(entries, { playlistName });
 
             return {
                 ...formatConfig,

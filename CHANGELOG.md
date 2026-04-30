@@ -6,11 +6,13 @@
 
 * Added optional IPTV `group-title` export for single-category directories.
 * Added an optional group-title control beside the playlist format selector for single-category exports.
+* Added first-folder group-title mode, which uses the first subfolder as the IPTV category while keeping deeper paths in item titles.
 
 ### Changed
 
 * Moved aggressive scanning into the Create Playlist action as a compact switch.
 * Updated README and manual QA guidance to match adaptive concurrency and batch behavior.
+* Updated the group-title control to use a compact text field with a First folder toggle; leaving it empty keeps the classic no-group-title output.
 
 ### Fixed
 
