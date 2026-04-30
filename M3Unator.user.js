@@ -608,7 +608,6 @@
         }
 
         .M3Unator-popup button:focus-visible,
-        .M3Unator-popup label.M3Unator-inline-switch:focus-visible,
         .M3Unator-social a:focus-visible,
         .M3Unator-social button:focus-visible,
         .M3Unator-launcher:focus-visible {
@@ -1380,23 +1379,6 @@
             to { transform: rotate(360deg); }
         }
 
-        .M3Unator-log.collapsed {
-            max-height: 0;
-            overflow: hidden;
-        }
-
-        .M3Unator-toggle-container span svg .infinity-icon {
-            opacity: 0.5;
-            transition: opacity 0.2s ease;
-            transform: scale(0.6) translateY(4px);
-            transform-origin: center;
-            stroke-width: 1.5;
-        }
-
-        .M3Unator-toggle-container input[type="checkbox"]:checked + span svg .infinity-icon {
-            opacity: 1;
-        }
-
         .M3Unator-depth-controls {
             background: rgba(30, 30, 46, 0.4);
             backdrop-filter: blur(8px);
@@ -1917,13 +1899,6 @@
             }
         }
 
-        getSummary() {
-            return {
-                logs: [...this.logs],
-                stats: { ...this.stats }
-            };
-        }
-
         clear() {
             this.logs = [];
             this.stats.nextSequence = 0;
@@ -1945,8 +1920,6 @@
             this.initializeRuntimeCollections();
             this.icons = this.createIcons();
             this.templates = this.createTemplates();
-            this.baseStyles = this.createBaseStyles();
-            GM_addStyle(this.baseStyles);
             this.updateActivityIndicator = this.createActivityIndicatorUpdater();
             this.logCache = new LogCache(100);
         }
@@ -2295,60 +2268,6 @@
                     </span>
                 `
             };
-        }
-
-        createBaseStyles() {
-            return `
-                .M3Unator-btn-base {
-                    border: none;
-                    border-radius: 8px;
-                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.5rem;
-                }
-
-                .M3Unator-toggle-base {
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    transition: all 0.2s ease;
-                }
-
-                .M3Unator-control-base {
-                    padding: 0.75rem 1.5rem;
-                    border-radius: 12px;
-                    font-weight: 600;
-                    font-size: 0.95rem;
-                    min-width: 160px;
-                    background: rgba(30, 30, 46, 0.6);
-                    backdrop-filter: blur(8px);
-                }
-
-                .M3Unator-stat-base {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 0.382rem;
-                    font-size: 0.875rem;
-                    cursor: help;
-                    min-width: 52px;
-                    padding: 0 0.382rem;
-                }
-
-                .M3Unator-icon-base {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 24px;
-                    height: 24px;
-                    transition: all 0.2s ease;
-                }
-            `;
         }
 
         createActivityIndicatorUpdater() {
@@ -4299,16 +4218,6 @@
             this.state.stats.files[type].current++;
         }
 
-        getCurrentStatsText() {
-            const { video, audio } = this.state.stats.files;
-            const details = [];
-
-            if (video.current > 0) details.push(`${video.current} video`);
-            if (audio.current > 0) details.push(`${audio.current} audio`);
-
-            return details.join(' and ');
-        }
-
         shouldStopScanning() {
             return !this.state.isGenerating || this.isScanAborted() || this.entries.length >= this.state.maxEntries;
         }
@@ -4404,33 +4313,6 @@
 
             if (this.seenUrlOrder.length > this.state.maxSeenUrls) {
                 this.trimSeenDirectoryCache();
-            }
-        }
-
-        async fetchDirectoryResponse(normalizedUrl) {
-            try {
-                return await this.fetchWithRetry(
-                    normalizedUrl,
-                    {
-                        signal: this.getScanAbortSignal(),
-                        timeout: this.state.timeoutMs
-                    },
-                    this.state.retryCount
-                );
-            } catch (error) {
-                if (this.isScanAborted()) {
-                    return null;
-                }
-
-                if (error.name === 'AbortError') {
-                    this.addLogEntry(`Request timed out: ${decodeURIComponent(normalizedUrl)}`, 'warning');
-                } else if (error.message.includes('404')) {
-                    this.addLogEntry(`Directory not found: ${decodeURIComponent(normalizedUrl)}`, 'warning');
-                } else {
-                    this.addLogEntry(`Connection error: ${error.message}`, 'error');
-                }
-
-                return null;
             }
         }
 
@@ -5556,48 +5438,6 @@
                 this.renderLogEntries(scanLog);
                 this._updateLogUIFrame = null;
             });
-        }
-
-        getReportLogIcon(type) {
-            switch (type) {
-                case 'error':
-                    return '❌';
-                case 'warning':
-                    return '⚠️';
-                case 'success':
-                    return '✅';
-                default:
-                    return 'ℹ️';
-            }
-        }
-
-        buildScanReportLines() {
-            const stats = this.state.stats;
-            const logCache = this.logCache;
-
-            return [
-                '📊 Scan Summary',
-                '───────────────',
-                `📁 Total Files: ${stats.totalFiles}`,
-                `🎥 Video Files: ${stats.files.video.total}`,
-                `🎵 Audio Files: ${stats.files.audio.total}`,
-                `📂 Directories: ${stats.directories.total}`,
-                `↕️ Maximum Depth: ${stats.directories.depth}`,
-                stats.errors.total > 0 ? `⚠️ Errors: ${stats.errors.total} (${stats.errors.skipped} skipped)` : null,
-                '',
-                '📝 Log Statistics',
-                '───────────────',
-                `Total Logs: ${logCache.stats.nextSequence}`,
-                logCache.stats.skippedLogs > 0 ? `Skipped Logs: ${logCache.stats.skippedLogs}` : null,
-                '',
-                `🔍 Last ${logCache.maxSize} Log Entries`,
-                '───────────────',
-                ...logCache.logs.map(log => `[${log.timestamp}] ${this.getReportLogIcon(log.type)} ${log.message}`)
-            ].filter(Boolean);
-        }
-
-        generateScanReport() {
-            return this.buildScanReportLines().join('\n');
         }
 
         formatFullStatValue(value) {
