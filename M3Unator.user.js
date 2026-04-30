@@ -448,13 +448,6 @@
             display: grid;
         }
 
-        .M3Unator-overlay {
-            position: fixed;
-            inset: 0;
-            background: transparent;
-            z-index: 9998;
-        }
-
         body.modal-open {
             overflow: hidden;
             pointer-events: none; /* Prevent background clicks */
@@ -598,12 +591,12 @@
         .M3Unator-input {
             width: 100%;
             height: 42px;
-            padding: 8px 80px 8px 12px;
+            padding: 8px 12px;
             border: 1px solid rgba(69, 71, 90, 0.6);
             border-radius: 6px;
             background: rgba(30, 30, 46, 0.6);
             color: #f5c2e7;
-            font-size: 14px;
+            font-size: 0.875rem;
             transition: all 0.2s ease;
             box-sizing: border-box;
         }
@@ -716,8 +709,10 @@
         }
 
         .M3Unator-group-title-trigger {
-            flex: 0 0 auto;
-            align-self: center;
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
             width: 32px;
             height: 32px;
             border: none;
@@ -728,7 +723,6 @@
             display: none;
             place-items: center;
             padding: 0;
-            margin-left: 4px;
             transition: color 0.18s ease, background 0.18s ease;
             z-index: 10;
         }
@@ -753,24 +747,32 @@
         }
 
         .M3Unator-group-title-inline {
-            flex: 0 0 auto;
-            max-width: 0;
+            position: absolute;
+            right: 44px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
             opacity: 0;
             overflow: hidden;
-            transition: max-width 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
-            margin-left: 0;
+            transition: width 0.25s ease, opacity 0.2s ease, right 0.25s ease;
+            z-index: 10;
         }
 
         .M3Unator-group-title-inline.is-visible {
-            max-width: 180px;
+            width: 160px;
             opacity: 1;
-            margin-left: 6px;
         }
 
         .M3Unator-group-title-inline .M3Unator-group-title-input {
-            height: 36px;
-            min-height: 36px;
+            width: 100%;
+            height: 34px;
+            min-height: 34px;
             font-size: 0.82rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            box-sizing: border-box;
+            background: #1e1e2e;
+            border: 1px solid rgba(69, 71, 90, 0.6);
         }
 
         .M3Unator-generate-row {
@@ -854,12 +856,13 @@
 
         .M3Unator-dropdown {
             position: absolute;
-            right: 8px;
+            right: 44px;
             top: 50%;
             transform: translateY(-50%);
             width: 70px;
             z-index: 9999;
             display: none;
+            transition: right 0.25s ease;
         }
 
         .M3Unator-dropdown.is-visible {
@@ -873,7 +876,7 @@
             border: 1px solid rgba(69, 71, 90, 0.6);
             border-radius: 6px;
             color: #f5c2e7;
-            font-size: 14px;
+            font-size: 0.875rem;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
@@ -945,7 +948,7 @@
             transition: all 0.2s ease;
             user-select: none;
             text-align: center;
-            font-size: 14px;
+            font-size: 0.875rem;
             font-family: monospace;
         }
 
@@ -989,15 +992,13 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: rgba(245, 194, 231, 0.1);
-            color: #f5c2e7;
-            padding: 0.25rem 0.75rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            margin-left: 0.75rem;
-            min-width: 3rem;
-            text-align: center;
+            min-width: 1.5rem;
+            height: 1.375rem;
+            padding: 0 0.375rem;
+            border-radius: 999px;
+            background: rgba(203, 166, 247, 0.14);
+            color: #cba6f7;
+            font-size: 0.75rem;
         }
 
         @keyframes gradient {
@@ -1042,47 +1043,6 @@
             }
         }
 
-        .M3Unator-control-btn:hover {
-            background: #313244;
-            transform: translateY(-1px);
-        }
-
-        .M3Unator-control-btn:active {
-            transform: translateY(1px);
-        }
-
-        .M3Unator-control-btn.pause {
-            border-color: #fab387;
-            color: #fab387;
-        }
-
-        .M3Unator-control-btn.pause:hover {
-            background: rgba(250, 179, 135, 0.1);
-        }
-
-        .M3Unator-control-btn.resume {
-            border-color: #94e2d5;
-            color: #94e2d5;
-        }
-
-        .M3Unator-control-btn.resume:hover {
-            background: rgba(148, 226, 213, 0.1);
-        }
-
-        .M3Unator-control-btn.cancel {
-            border-color: #f38ba8;
-            color: #f38ba8;
-        }
-
-        .M3Unator-control-btn.cancel:hover {
-            background: rgba(243, 139, 168, 0.1);
-        }
-
-        .M3Unator-control-btn svg {
-            width: 14px;
-            height: 14px;
-        }
-
         .M3Unator-button {
             width: 100%;
             padding: 0 1rem;
@@ -1119,12 +1079,12 @@
         .M3Unator-toast {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 12px 24px;
+            gap: 0.75rem;
+            padding: 0.75rem 1.5rem;
             border-radius: 12px;
-            margin-bottom: 12px;
+            margin-bottom: 0.75rem;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-            font-size: 14px;
+            font-size: 0.875rem;
             font-weight: 500;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             background: rgba(17, 17, 27, 0.95);
@@ -1281,96 +1241,9 @@
             flex-shrink: 0;
         }
 
-        .M3Unator-header-link {
-            height: 32px;
-            padding: 0 0.75rem;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #bac2de;
-            background: rgba(148, 163, 184, 0.08);
-            border: 1px solid rgba(69, 71, 90, 0.7);
-            text-decoration: none;
-            font-size: 0.75rem;
-            font-weight: 600;
-            transition: all 0.2s ease;
-        }
-
-        .M3Unator-header-link:hover {
-            color: #f5f7ff;
-            background: rgba(137, 180, 250, 0.1);
-            border-color: rgba(137, 180, 250, 0.28);
-        }
-
-        .M3Unator-header-link.info-link {
-            border: 1px solid rgba(69, 71, 90, 0.7);
-            cursor: pointer;
-            font-family: inherit;
-        }
-
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
-        }
-
-        .M3Unator-depth-input {
-            position: relative;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-top: 0.5rem;
-        }
-
-        .M3Unator-depth-input input[type="number"] {
-            width: 64px;
-            padding: 0.25rem 0.375rem;
-            border: 1px solid #45475a;
-            border-radius: 4px;
-            background: rgba(30, 30, 46, 0.8);
-            color: #cdd6f4;
-            font-size: 0.875rem;
-            text-align: center;
-            margin: 0 0 0 0.5rem;
-        }
-
-        .M3Unator-depth-input input[type="number"]:focus {
-            outline: none;
-            border-color: #cba6f7;
-            box-shadow: 0 0 0 2px rgba(203, 166, 247, 0.2);
-        }
-
-        .M3Unator-depth-input input[type="number"]::-webkit-inner-spin-button {
-            opacity: 1;
-            background: #313244;
-            border-left: 1px solid #45475a;
-            border-radius: 0 4px 4px 0;
-            cursor: pointer;
-        }
-
-        .M3Unator-depth-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem;
-            background: #1e1e2e;
-            border: 1px solid #45475a;
-            border-radius: 6px;
-            color: #cdd6f4;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .M3Unator-depth-toggle:hover {
-            background: #313244;
-            border-color: #cba6f7;
-        }
-
-        .M3Unator-depth-toggle.active {
-            background: rgba(203, 166, 247, 0.1);
-            border-color: #cba6f7;
-            color: #cba6f7;
         }
 
         .M3Unator-stats-bar {
@@ -1380,6 +1253,7 @@
             border: 1px solid #313244;
             border-radius: 8px;
             display: none;
+            animation: fadeIn 0.2s ease;
         }
 
         .M3Unator-stats-bar.active {
@@ -1506,26 +1380,6 @@
             to { transform: rotate(360deg); }
         }
 
-        .M3Unator-toast {
-            animation: toastSlideUp 0.2s ease forwards;
-        }
-
-        .M3Unator-toast.removing {
-            animation: toastSlideDown 0.2s ease forwards;
-        }
-
-        .M3Unator-popup {
-            animation: slideUp 0.2s ease;
-        }
-
-        .M3Unator-stats-bar {
-            animation: fadeIn 0.2s ease;
-        }
-
-        .M3Unator-log {
-            transition: max-height 0.3s ease;
-        }
-
         .M3Unator-log.collapsed {
             max-height: 0;
             overflow: hidden;
@@ -1549,7 +1403,6 @@
             border: 1px solid #313244;
             border-radius: 8px;
             padding: 0.618rem;
-            margin-top: 1rem;
             display: none;
         }
 
@@ -1666,103 +1519,10 @@
             user-select: none;
         }
 
-        .M3Unator-url-container {
-            display: flex;
-            align-items: center;
-            background: rgba(30, 30, 46, 0.6);
-            border: 1px solid #313244;
-            border-radius: 6px;
-            padding: 0.618rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s ease;
-        }
-
-        .M3Unator-url-container:hover {
-            border-color: #45475a;
-        }
-
-        .M3Unator-url-icon {
-            color: #6c7086;
-            margin-right: 0.618rem;
-            flex-shrink: 0;
-        }
-
-        .M3Unator-url-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: #cdd6f4;
-            font-size: 0.875rem;
-            padding: 0;
-            margin: 0;
-            width: 100%;
-        }
-
-        .M3Unator-url-input:focus {
-            outline: none;
-        }
-
-        .M3Unator-url-copy {
-            background: transparent;
-            border: none;
-            color: #6c7086;
-            padding: 0.382rem;
-            margin-left: 0.618rem;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .M3Unator-url-copy:hover {
-            color: #cdd6f4;
-            background: rgba(205, 214, 244, 0.1);
-        }
-
-        .M3Unator-url-copy.copied {
-            color: #a6e3a1;
-            animation: copyPulse 0.3s ease;
-        }
-
-        @keyframes copyPulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(1); }
-        }
-
-        .M3Unator-progress {
-            background: rgba(30, 30, 46, 0.6);
-            border-radius: 12px;
-            padding: 1rem;
-            margin: 1rem 0;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(203, 166, 247, 0.2);
-        }
-
-        .M3Unator-progress-text {
-            color: #f5c2e7;
-            font-weight: 600;
-            text-align: center;
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-
-        .M3Unator-progress-spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid rgba(245, 194, 231, 0.1);
-            border-top-color: #f5c2e7;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
         .M3Unator-controls {
             display: flex;
             gap: 0.75rem;
-            margin: 0.75rem 0;
+            margin: 0;
             justify-content: center;
         }
 
@@ -1810,12 +1570,6 @@
             height: 20px;
         }
 
-        .M3Unator-layers-icon {
-            width: 20px;
-            height: 20px;
-            margin-right: 0.5rem;
-        }
-
         .M3Unator-input:-webkit-autofill,
         .M3Unator-input:-webkit-autofill:hover,
         .M3Unator-input:-webkit-autofill:focus,
@@ -1850,7 +1604,8 @@
 
         .M3Unator-log-toggle {
             width: 100%;
-            padding: 0.5rem 0.75rem;
+            padding: 0.625rem 0.75rem;
+            height: 2.625rem;
             background: rgba(203, 166, 247, 0.05);
             border: none;
             color: #cdd6f4;
@@ -1911,32 +1666,6 @@
             }
         }
 
-        @keyframes pulsePaused {
-            0% {
-                box-shadow: 0 0 0 0 rgba(249, 226, 175, 0.4);
-            }
-            70% {
-                box-shadow: 0 0 0 8px rgba(249, 226, 175, 0);
-            }
-            100% {
-                box-shadow: 0 0 0 0 rgba(249, 226, 175, 0);
-            }
-        }
-
-        @keyframes completeScale {
-            0% {
-                transform: scale(0.8);
-                opacity: 0.5;
-            }
-            50% {
-                transform: scale(1.2);
-            }
-            100% {
-                transform: scale(1);
-                opacity: 1;
-            }
-        }
-
         .M3Unator-log-toggle:hover .M3Unator-activity-indicator {
             transform: scale(1.05);
         }
@@ -1966,6 +1695,8 @@
             padding: 0;
             border-top: none;
             margin: 0;
+            font-size: 0.8125rem;
+            line-height: 1.4;
         }
 
         .M3Unator-log.expanded {
@@ -1980,6 +1711,7 @@
             padding: 0.25rem 0.5rem;
             border-bottom: 1px solid rgba(49, 50, 68, 0.5);
             font-size: 0.875rem;
+            border-radius: 4px;
         }
 
         .M3Unator-log-entry:last-child {
@@ -1989,6 +1721,8 @@
         .M3Unator-log-time {
             color: #6c7086;
             margin-right: 0.5rem;
+            font-size: 0.75rem;
+            opacity: 0.7;
         }
 
         .M3Unator-log-entry.success {
@@ -2010,45 +1744,6 @@
         .M3Unator-log-entry.final {
             color: #a6e3a1;
             font-weight: 500;
-        }
-
-        .M3Unator-log {
-            margin-top: 0.75rem;
-            max-height: calc(100vh - 70vh);
-            font-size: 0.8125rem;
-            line-height: 1.4;
-        }
-
-        .M3Unator-log-entry {
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-        }
-
-        .M3Unator-log-toggle {
-            padding: 10px 12px;
-            height: 42px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .M3Unator-log-counter {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 24px;
-            height: 22px;
-            padding: 0 6px;
-            border-radius: 999px;
-            background: rgba(203, 166, 247, 0.14);
-            color: #cba6f7;
-            font-size: 0.75rem;
-        }
-
-        .M3Unator-log-time {
-            font-size: 0.75rem;
-            opacity: 0.7;
-            margin-right: 0.5rem;
         }
 
         .M3Unator-activity-indicator {
@@ -2118,7 +1813,7 @@
         }
 
         .M3Unator-info-modal-header {
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1rem;
             border-bottom: 1px solid #45475a;
             display: flex;
             align-items: center;
@@ -2128,30 +1823,30 @@
         .M3Unator-info-modal-header h3 {
             margin: 0;
             color: #f5c2e7;
-            font-size: 1.25rem;
+            font-size: 1.1rem;
         }
 
         .M3Unator-info-modal-body {
-            padding: 2rem;
-            line-height: 1.55;
+            padding: 1rem 1.25rem;
+            line-height: 1.45;
         }
 
         .M3Unator-info-modal-body p {
-            margin: 0 0 1rem;
+            margin: 0 0 0.5rem;
         }
 
         .M3Unator-info-modal-body h4 {
-            margin: 1.5rem 0 0.75rem;
+            margin: 0.75rem 0 0.375rem;
             color: #f5c2e7;
         }
 
         .M3Unator-info-modal-body ul {
-            margin: 0.75rem 0;
-            padding-left: 1.5rem;
+            margin: 0.25rem 0 0.5rem;
+            padding-left: 1.25rem;
         }
 
         .M3Unator-info-modal-body li {
-            margin: 0.5rem 0;
+            margin: 0.2rem 0;
         }
 
         .M3Unator-info-modal-body a {
@@ -2175,7 +1870,7 @@
             transition: color 0.2s ease;
         }
 
-        .info-close:hover {
+        .M3Unator-info-close:hover {
             color: #f5c2e7;
         }
     `);
@@ -2418,7 +2113,7 @@
                     max: 20,
                     hardCap: 24
                 },
-                stats: { ...initialStats }
+                stats: JSON.parse(JSON.stringify(initialStats))
             };
         }
 
@@ -2733,34 +2428,31 @@
                                 <button type="button" class="M3Unator-info-close" aria-label="Close About">${this.icons.close}</button>
                             </div>
                             <div class="M3Unator-info-modal-body">
-                                <p><strong>Web Directory Playlist Creator</strong></p>
-                                <p>Scan supported directory listings for video and audio files, then export <code>.m3u</code> or <code>.m3u8</code> playlists.</p>
-                                <h4>Playlist Generation</h4>
+                                <p>🎵 Scan web directories for media files and export <code>.m3u</code> / <code>.m3u8</code> playlists.</p>
+                                <p>🧠 Auto-detects server type via heuristic analysis — no configuration needed.</p>
+                                <h4>📋 Playlist</h4>
                                 <ul>
-                                    <li>Extended M3U and UTF-8 M3U8 export</li>
-                                    <li>Optional IPTV <code>group-title</code> metadata</li>
-                                    <li>Readable nested path labels in titles</li>
-                                    <li>Duplicate entry prevention across batches</li>
+                                    <li>M3U &amp; UTF-8 M3U8 export</li>
+                                    <li>IPTV <code>group-title</code> metadata</li>
+                                    <li>Nested path labels in titles</li>
+                                    <li>Duplicate entry prevention</li>
                                 </ul>
-                                <h4>Media Detection</h4>
+                                <h4>🎬 Media</h4>
                                 <ul>
-                                    <li>33 video formats (MP4, MKV, MOV, ...)</li>
-                                    <li>41 audio formats (MP3, FLAC, M4A, ...)</li>
-                                    <li>International filename support via URL decoding</li>
+                                    <li>33 video formats (MP4, MKV, MOV …)</li>
+                                    <li>41 audio formats (MP3, FLAC, M4A …)</li>
+                                    <li>International filename support</li>
                                 </ul>
-                                <h4>Directory Scanning</h4>
+                                <h4>🔍 Scanning</h4>
                                 <ul>
-                                    <li>Current directory or recursive (depth 1-99)</li>
-                                    <li>Adaptive concurrency: 4-12 normal, 6-20 aggressive</li>
-                                    <li>Seen-URL deduplication cache</li>
-                                    <li>Pause, resume, and cancel controls</li>
+                                    <li>Current directory or recursive (depth 1–99)</li>
+                                    <li>Adaptive concurrency: 4–12 / 6–20</li>
+                                    <li>Pause, resume &amp; cancel controls</li>
                                 </ul>
-                                <h4>Supported Servers</h4>
-                                <ul>
-                                    <li>Apache, Nginx, LiteSpeed, Lighttpd, IIS, Caddy</li>
-                                </ul>
-                                <p>Runs locally in your browser. No data uploaded.</p>
-                                <p><a href="https://github.com/hasanbeder/M3Unator" target="_blank" rel="noopener noreferrer">GitHub</a> | <a href="https://greasyfork.org/en/scripts/521593-m3unator-web-directory-playlist-creator" target="_blank" rel="noopener noreferrer">Greasy Fork</a></p>
+                                <h4>🌐 Servers</h4>
+                                <p>Apache · Nginx · LiteSpeed · Lighttpd · IIS · Caddy</p>
+                                <p>🔒 Runs locally. No data uploaded.</p>
+                                <p><a href="https://github.com/hasanbeder/M3Unator" target="_blank" rel="noopener noreferrer">GitHub</a> · <a href="https://greasyfork.org/en/scripts/521593-m3unator-web-directory-playlist-creator" target="_blank" rel="noopener noreferrer">Greasy Fork</a></p>
                             </div>
                         </div>
                     </div>
@@ -2789,20 +2481,20 @@
                                         <div class="M3Unator-dropdown-item" data-value="m3u8" data-button-label=".m3u8" title="UTF-8 M3U export with BOM for wider player compatibility" role="option" aria-selected="false">.m3u8</div>
                                     </div>
                                 </div>
-                            </div>
-                            <button type="button" class="M3Unator-group-title-trigger" id="groupTitleToggle" title="Add group-title metadata for IPTV players" aria-label="Toggle group title" aria-expanded="false" aria-controls="groupTitlePanel">
-                                ${this.icons.tag}
-                            </button>
-                            <div class="M3Unator-group-title-inline" id="groupTitlePanel" role="region" aria-labelledby="groupTitleToggle" aria-hidden="true">
-                                <label for="groupTitle" class="M3Unator-visually-hidden">Group title</label>
-                                <input type="text"
-                                    id="groupTitle"
-                                    class="M3Unator-input M3Unator-group-title-input"
-                                    placeholder="Group title"
-                                    spellcheck="false"
-                                    autocomplete="off"
-                                    autocorrect="off"
-                                    autocapitalize="off">
+                                <button type="button" class="M3Unator-group-title-trigger" id="groupTitleToggle" title="Add group-title metadata for IPTV players" aria-label="Toggle group title" aria-expanded="false" aria-controls="groupTitlePanel">
+                                    ${this.icons.tag}
+                                </button>
+                                <div class="M3Unator-group-title-inline" id="groupTitlePanel" role="region" aria-labelledby="groupTitleToggle" aria-hidden="true">
+                                    <label for="groupTitle" class="M3Unator-visually-hidden">Group title</label>
+                                    <input type="text"
+                                        id="groupTitle"
+                                        class="M3Unator-input M3Unator-group-title-input"
+                                        placeholder="Group title"
+                                        spellcheck="false"
+                                        autocomplete="off"
+                                        autocorrect="off"
+                                        autocapitalize="off">
+                                </div>
                             </div>
                         </div>
 
@@ -3444,6 +3136,27 @@
                     groupTitleToggle.setAttribute('aria-expanded', 'false');
                 }
             }
+
+            this.updatePlaylistInputPadding();
+        }
+
+        updatePlaylistInputPadding() {
+            const { playlistInput, dropdown, groupTitlePanel } = this.domElements;
+            if (!playlistInput) return;
+
+            const hasDropdown = dropdown && dropdown.classList.contains('is-visible');
+            const hasGroupTitle = groupTitlePanel && groupTitlePanel.classList.contains('is-visible');
+
+            if (!hasDropdown) {
+                playlistInput.style.paddingRight = '';
+                return;
+            }
+
+            if (hasGroupTitle) {
+                playlistInput.style.paddingRight = '284px';
+            } else {
+                playlistInput.style.paddingRight = '120px';
+            }
         }
 
         bindPlaylistInputHandlers(playlistInput, dropdown, dropdownButton) {
@@ -3565,10 +3278,25 @@
             }
 
             groupTitleToggle.addEventListener('click', () => {
+                if (this.state.isGenerating) {
+                    return;
+                }
+
                 const isOpen = groupTitlePanel.classList.toggle('is-visible');
                 groupTitlePanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
                 groupTitleToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
                 groupTitleToggle.classList.toggle('active', isOpen);
+
+                const dropdown = this.domElements.dropdown;
+                if (isOpen) {
+                    if (dropdown) dropdown.style.right = '208px';
+                    groupTitlePanel.style.right = '44px';
+                } else {
+                    if (dropdown) dropdown.style.right = '';
+                    groupTitlePanel.style.right = '';
+                }
+
+                this.updatePlaylistInputPadding();
 
                 if (isOpen && groupTitle) {
                     groupTitle.disabled = false;
@@ -3757,6 +3485,7 @@
             if (this.domElements.groupTitle) {
                 this.domElements.groupTitle.disabled = true;
             }
+            this.domElements.playlistInput.disabled = true;
             this.domElements.currentDepth.disabled = true;
             this.domElements.customDepth.disabled = true;
             this.domElements.maxDepth.disabled = true;
@@ -3996,6 +3725,9 @@
                 elements.dropdownButton.disabled = false;
                 elements.dropdownButton.setAttribute('aria-disabled', 'false');
             }
+            if (elements.playlistInput) {
+                elements.playlistInput.disabled = false;
+            }
         }
 
         resetCancelledStatsUi(elements, keepLogs) {
@@ -4209,10 +3941,7 @@
         getFetchHeaders() {
             return {
                 Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                Connection: 'keep-alive',
-                'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'Accept-Language': 'en-US,en;q=0.9'
             };
         }
 
